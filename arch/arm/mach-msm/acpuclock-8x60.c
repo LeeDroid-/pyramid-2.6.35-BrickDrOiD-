@@ -235,7 +235,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl_v2[] = {
   { {1, 1}, 1440000,  ACPU_SCPLL, 0, 0, 1, 0x16, L2(16), 1187500, 0x03006000},
   { {1, 1}, 1512000,  ACPU_SCPLL, 0, 0, 1, 0x1C, L2(17), 1250000, 0x03006000},
   { {1, 1}, 1536000,  ACPU_SCPLL, 0, 0, 1, 0x1C, L2(18), 1250000, 0x03006000},
-/* Enable Overclocking -> 1,824Ghz */
+/* Enable Overclocking -> 1,782Ghz */
   { {1, 1}, 1632000,  ACPU_SCPLL, 0, 0, 1, 0x1E, L2(18), 1250000, 0x03006000},
   { {1, 1}, 1674000,  ACPU_SCPLL, 0, 0, 1, 0x1F, L2(18), 1275000, 0x03006000},
   { {1, 1}, 1728000,  ACPU_SCPLL, 0, 0, 1, 0x20, L2(19), 1300000, 0x03006000},

@@ -1339,14 +1339,6 @@ config MSM_DALRPC_TEST
 	help
 	  Exercises DAL RPC calls to QDSP6.
 
-config L2_BANDWIDTH_PUSH
-	bool "L2 Bandwith pushed"
-	default n
-
-config SYNC_L2_CACHE_FREQ
-	bool "Synchronous L2 Cache (limit @ 1,536G)"
-	default n
-
 if CPU_FREQ_MSM
 
 config MSM_CPU_FREQ_SET_MIN_MAX
@@ -1359,12 +1351,12 @@ config MSM_CPU_FREQ_SET_MIN_MAX
 config MSM_CPU_FREQ_MAX
 	int "Max CPU Frequency"
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
-	default 1536000
+	default 384000
 
 config MSM_CPU_FREQ_MIN
 	int "Min CPU Frequency"
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
-	default 192000
+	default 245760
 
 endif # CPU_FREQ_MSM
 
@@ -1386,6 +1378,14 @@ config MSM_CPU_FREQ_SCREEN_ON
 	default 384000
 
 endif # MSM_CPU_FREQ_SCREEN
+
+config MSM_CPU_FREQ_ONDEMAND_MAX
+	int "Max"
+	default 384000
+
+config MSM_CPU_FREQ_ONDEMAND_MIN
+	int "Min"
+	default 245760
 
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"

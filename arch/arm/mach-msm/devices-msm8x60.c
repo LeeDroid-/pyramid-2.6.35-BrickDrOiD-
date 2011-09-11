@@ -666,7 +666,7 @@ struct platform_device msm_device_rng = {
 struct kgsl_platform_data kgsl_pdata = {
 	.pwrlevel_2d = {
 		{
-			.gpu_freq = 200000000,
+			.gpu_freq = 228571000,
 			.bus_freq = 1,
 		},
 		{

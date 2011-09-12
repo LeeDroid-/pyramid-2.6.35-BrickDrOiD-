@@ -1009,12 +1009,23 @@ static inline unsigned int xhci_get_endpoint_interval(struct usb_device *udev,
 				interval = 3;
 			if ((1 << interval) != 8*ep->desc.bInterval)
 				dev_warn(&udev->dev,
-						"ep %#x - rounding interval"
-						" to %d microframes, "
+						"ep %#x - rounding interval to %d %sframes\n",
 						"ep desc says %d microframes\n",
 						ep->desc.bEndpointAddress,
-						1 << interval,
+/*						1 << interval,
 						8*ep->desc.bInterval);
+*/
+						1 << interval,
+						udev->speed == USB_SPEED_FULL ? "" : "micro");
+
+			if (udev->speed == USB_SPEED_FULL) {
+			/*
+			 * Full speed isoc endpoints specify interval in frames,
+			 * not microframes. We are using microframes everywhere,
+			 * so adjust accordingly.
+			 */
+			interval += 3;	/* 1 frame = 2^3 uframes */
+			}
 		}
 		break;
 	default:

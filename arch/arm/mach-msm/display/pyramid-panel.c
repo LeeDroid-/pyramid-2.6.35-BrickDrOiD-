@@ -514,9 +514,9 @@ static struct platform_device lcdc_samsung_panel_device = {
 #define BRI_SETTING_DEF                 143
 #define BRI_SETTING_MAX                 255
 
-#define SHARP_PWM_MIN                   9	/* 3.5% of max pwm */
+#define SHARP_PWM_MIN                   6	/* 3.5% of max pwm */
 #define SHARP_PWM_DEFAULT               69	/* 27% of max pwm  */
-#define SHARP_PWM_MAX                   194	/* 76% of max pwm */
+#define SHARP_PWM_MAX                   255	/* 76% of max pwm */
 
 static unsigned char pyd_shp_shrink_pwm(int br)
 {
@@ -542,7 +542,7 @@ static unsigned char pyd_shp_shrink_pwm(int br)
 	return shrink_br;
 }
 
-#define AUO_PWM_MIN                     9	/* 3.5% of max pwm */
+#define AUO_PWM_MIN                     6	/* 3.5% of max pwm */
 #define AUO_PWM_DEFAULT                 87	/* 34% of max pwm  */
 #define AUO_PWM_MAX                     255	/* 100% of max pwm  */
 

@@ -678,9 +678,9 @@ struct kgsl_platform_data kgsl_pdata = {
 	.num_levels_2d = 2,
 	.pwrlevel_3d = {
 		{
-			.gpu_freq = 266667000,
-			.bus_freq = 3,
-		},
+ 			.gpu_freq = 300000000,
+ 			.bus_freq = 3,
+ 		},
 		{
 			.gpu_freq = 228571000,
 			.bus_freq = 2,

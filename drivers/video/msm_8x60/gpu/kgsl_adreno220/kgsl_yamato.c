@@ -849,13 +849,14 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 	kgsl_yamato_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	kgsl_yamato_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
-
 	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
-		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
-	} else {
-		i = 3; /*try writing override1 & 2, three times.*/
-		while (i) {
+		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
+	}
+#if 0
+	else {
+		unsigned int override1, override2, i = 3; /*try writing override1 & 2, three times.*/
+		while(i){
 			kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x7BFFFFFA);
 			kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE1, &override1);
 			kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x000001F4);
@@ -863,12 +864,11 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 			if (((override1 & 0x7BFFFFFA) == 0x7BFFFFFA) &&
 				((override2 & 0x000001F4) == 0x000001F4))
 				break;
-			KGSL_DRV_ERR("OVERRIDE1 = 0x%x, OVERRIDE2 = 0x%x !!\n",
-								override1, override2);
+			KGSL_DRV_ERR("OVERRIDE1 & OVERRIDE2 Error!\n");
 			i--;
 		}
-	}
-
+        }
+#endif
 	kgsl_sharedmem_set(&device->memstore, 0, 0,
 			   device->memstore.size);
 

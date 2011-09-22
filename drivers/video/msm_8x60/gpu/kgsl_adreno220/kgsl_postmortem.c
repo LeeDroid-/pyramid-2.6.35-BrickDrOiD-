@@ -31,7 +31,7 @@
 #include "kgsl_yamato.h"
 
 #define INVALID_RB_CMD 0xaaaaaaaa
-#define KGSL_TEST_VERSION "SBA 42"
+#define KGSL_TEST_VERSION "SBA 43 fix by show-p1984"
 
 struct pm_id_name {
 	uint32_t id;

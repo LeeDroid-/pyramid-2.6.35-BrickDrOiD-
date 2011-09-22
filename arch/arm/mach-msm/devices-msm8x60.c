@@ -694,8 +694,9 @@ struct kgsl_platform_data kgsl_pdata = {
 			.bus_freq = 0,
 		},
 	},
+
 	.init_level_3d = 0,
-	.num_levels_3d = 4,
+	.num_levels_3d = 5,
 	.set_grp2d_async = NULL,
 	.set_grp3d_async = NULL,
 	.imem_clk_name = "imem_axi_clk",

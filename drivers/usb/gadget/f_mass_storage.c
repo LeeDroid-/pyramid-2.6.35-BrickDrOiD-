@@ -1917,7 +1917,6 @@ static int send_status(struct fsg_common *common)
 
 	csw->Signature = cpu_to_le32(USB_BULK_CS_SIG);
 	csw->Tag = common->tag;
-	csw->Residue = cpu_to_le32(common->residue);
 #ifdef CONFIG_USB_CSW_HACK
 	/* Since csw is being sent early, before
 	 * writing on to storage media, need to set

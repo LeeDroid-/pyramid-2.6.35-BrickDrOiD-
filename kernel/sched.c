@@ -78,6 +78,7 @@
 #include <asm/irq_regs.h>
 
 #include "sched_cpupri.h"
+#include "sched_autogroup.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>

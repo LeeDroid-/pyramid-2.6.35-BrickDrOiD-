@@ -972,6 +972,14 @@ config USB_F_SERIAL_SDIO
           separate transport layer u_sdio(very similar to u_serial.c)
           Say "y" to link the driver staticall
 
+config USB_CSW_HACK
+	boolean "USB Mass storage csw hack Feature"
+	depends on USB_ANDROID
+	default y
+	help
+	 This csw hack feature is for increasing the performance of the mass
+	 storage
+
 config USB_CDC_COMPOSITE
 	tristate "CDC Composite Device (Ethernet and ACM)"
 	depends on NET

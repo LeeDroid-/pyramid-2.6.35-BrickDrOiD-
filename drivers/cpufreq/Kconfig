@@ -121,7 +121,7 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	  'interactive' governor for latency-sensitive workloads.
 
 config CPU_FREQ_DEFAULT_GOV_BADASS
-	bool "smartass2"
+	bool "badass"
 	select CPU_FREQ_GOV_BADASS
 	help
 	  Use the CPUFreq governor 'badass' as default.

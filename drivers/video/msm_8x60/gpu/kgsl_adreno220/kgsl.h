@@ -91,6 +91,9 @@ struct kgsl_driver {
 	struct cdev cdev;
 	dev_t dev_num;
 	struct class *class;
+	/* Kobjects for storing pagetable and process statistics */
+	struct kobject *ptkobj;
+	struct kobject *prockobj;
 	struct kgsl_device *devp[KGSL_DEVICE_MAX];
 	int num_devs;
 	struct platform_device *pdev;
@@ -111,13 +114,7 @@ struct kgsl_driver {
 	/* Size (in bytes) for each pagetable */
 	unsigned int ptsize;
 
-	struct {
-		unsigned long *bitmap;
-		int entries;
-		spinlock_t lock;
-		void *hostptr;
-		unsigned int physaddr;
-	} ptpool;
+	struct kgsl_ptpool ptpool;
 };
 
 extern struct kgsl_driver kgsl_driver;

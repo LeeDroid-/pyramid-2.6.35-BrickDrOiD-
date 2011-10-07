@@ -2028,11 +2028,11 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 		}
 	}
 
-	kgsl_driver.ptsize = KGSL_PAGETABLE_ENTRIES(pdata->pt_va_size) *
+	kgsl_driver.ptsize = 
+		KGSL_PAGETABLE_ENTRIES(CONFIG_MSM_KGSL_PAGE_TABLE_SIZE) *
 		KGSL_PAGETABLE_ENTRY_SIZE;
 	kgsl_driver.ptsize = ALIGN(kgsl_driver.ptsize, KGSL_PAGESIZE);
 
-	kgsl_driver.pt_va_size = pdata->pt_va_size;
 	kgsl_driver.ptpool.entries = pdata->pt_max_count;
 
 	result = kgsl_ptpool_init();

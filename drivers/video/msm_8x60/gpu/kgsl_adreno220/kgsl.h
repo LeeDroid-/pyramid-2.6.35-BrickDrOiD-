@@ -64,6 +64,9 @@
 /* The size of each entry in a page table */
 #define KGSL_PAGETABLE_ENTRY_SIZE  4
 
+/* Pagetable Virtual Address base */
+#define KGSL_PAGETABLE_BASE    0x66000000
+
 /* Extra accounting entries needed in the pagetable */
 #define KGSL_PT_EXTRA_ENTRIES      16
 
@@ -101,14 +104,6 @@ struct kgsl_driver {
 
 	/* Size (in bytes) for each pagetable */
 	unsigned int ptsize;
-
-	/* The virtual address range for each pagetable as set by the
-	   platform */
-
-	unsigned int pt_va_size;
-
-	/* A structure for information about the pool of
-	   pagetable memory */
 
 	struct {
 		unsigned long *bitmap;

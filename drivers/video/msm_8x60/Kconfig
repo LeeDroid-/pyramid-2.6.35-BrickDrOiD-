@@ -178,6 +178,14 @@ config MSM_KGSL_PER_FD_PAGETABLE
          If enabled, the MMU unit of GPU driver will use seperate
          pagetables for each file descriptor
 
+config MSM_KGSL_PAGE_TABLE_SIZE
+	hex "Size of pagetables"
+	default 0xFFF0000
+	depends on MSM_KGSL_MMU
+	help
+	  Sets the pagetable size used by the MMU.  The max value
+	  is 0xFFF0000 or (256M - 64K).
+
 config MSM_KGSL_MMU_PAGE_FAULT
 	bool "Force the GPU MMU to page fault for unmapped regions"
 	default n

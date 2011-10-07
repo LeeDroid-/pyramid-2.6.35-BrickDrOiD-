@@ -73,6 +73,12 @@
 #define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> KGSL_PAGESIZE_SHIFT) + \
 				     KGSL_PT_EXTRA_ENTRIES)
 
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+#define KGSL_PAGETABLE_COUNT (CONFIG_MSM_KGSL_PAGE_TABLE_COUNT)
+#else
+#define KGSL_PAGETABLE_COUNT 1
+#endif
+
 /* Casting using container_of() for structures that kgsl owns. */
 #define KGSL_CONTAINER_OF(ptr, type, member) \
 		container_of(ptr, type, member)

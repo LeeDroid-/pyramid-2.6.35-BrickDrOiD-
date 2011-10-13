@@ -45,6 +45,7 @@
 #else
 #include "msm_vfe_8x60.h"
 #endif
+
 DEFINE_MUTEX(ctrl_cmd_lock);
 
 #define CAMERA_STOP_VIDEO 58
@@ -70,6 +71,7 @@ static LIST_HEAD(msm_sensors);
 struct  msm_control_device *g_v4l2_control_device;
 int g_v4l2_opencnt;
 static int camera_node;
+static int32_t s_effectState = 0;
 static enum msm_camera_type camera_type[MAX_SENSOR_NUM];
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
@@ -2711,6 +2713,7 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 		}
 		CDBG("%s: delivering pp_snap\n", __func__);
 		msm_enqueue(&sync->pict_q, &sync->pp_snap->list_pict);
+		msm_enqueue(&sync->pict_q, &sync->pp_thumb->list_pict);
 		sync->pp_snap = NULL;
 		sync->pp_thumb = NULL;
 		spin_unlock_irqrestore(&pp_snap_spinlock, flags);
@@ -2915,8 +2918,17 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 			ERR_COPY_FROM_USER();
 			rc = -EFAULT;
 		} else
+		{
+			if (s_effectState == 1 && flash_info.flashtype == LED_FLASH)
+			{
+				pr_info("MSM_CAM_IOCTL_FLASH_CTRL %d\n", s_effectState);
+				if (flash_info.ctrl_data.led_state == 1)
+					flash_info.ctrl_data.led_state = 9;
+				else if (flash_info.ctrl_data.led_state == 2)
+					flash_info.ctrl_data.led_state = 8;
+			}
 			rc = msm_flash_ctrl(pmsm->sync->sdata, &flash_info);
-
+		}
 		break;
 	}
 
@@ -2934,6 +2946,16 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 		rc = 0;
 		break;
 	}
+
+	case MSM_CAM_IOCTL_EFFECT_STATE_CFG: {
+		if (copy_from_user(&s_effectState, argp, sizeof(int32_t))) {
+			ERR_COPY_FROM_USER();
+			return -EFAULT;
+		}
+		rc = 0;
+		break;
+	}
+
 
 #ifdef CONFIG_CAMERA_ZSL
 	case MSM_CAM_IOCTL_SEND_OUTPUT_S:
@@ -3438,10 +3460,18 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 		}
 		if (sync->pp_mask & PP_SNAP) {
 			spin_lock_irqsave(&pp_thumb_spinlock, flags);
-			if (!sync->pp_thumb) {
+                       sync->thumb_count--;
+                       if (!sync->pp_thumb && (0 >= sync->thumb_count)) {
 				CDBG("%s: pp sending thumbnail to config\n",
 					__func__);
 				sync->pp_thumb = qcmd;
+                               spin_unlock_irqrestore(&pp_thumb_spinlock,
+                                       flags);
+                               if (atomic_read(&qcmd->on_heap))
+                                       atomic_add(1, &qcmd->on_heap);
+                       } else {
+                               spin_unlock_irqrestore(&pp_thumb_spinlock,
+                                       flags);
 			}
 			spin_unlock_irqrestore(&pp_thumb_spinlock, flags);
 			break;
@@ -3492,7 +3522,8 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 		}
 		if (sync->pp_mask & PP_SNAP) {
 			spin_lock_irqsave(&pp_snap_spinlock, flags);
-			if (!sync->pp_snap) {
+                       sync->snap_count--;
+                       if (!sync->pp_snap && (0 >= sync->snap_count)) {
 				CDBG("%s: pp sending main image to config\n",
 					__func__);
 				sync->pp_snap = qcmd;
@@ -3500,8 +3531,10 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 					flags);
 				if (atomic_read(&qcmd->on_heap))
 					atomic_add(1, &qcmd->on_heap);
+                        } else {
+                                spin_unlock_irqrestore(&pp_snap_spinlock,
+                                       flags);
 			}
-			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 			break;
 		} else {
 #ifdef CONFIG_CAMERA_ZSL
@@ -3674,6 +3707,12 @@ vfe_for_config:
 	CDBG("%s: msm_enqueue event_q\n", __func__);
 	if (sync->frame_q.len <= 100 && sync->event_q.len <= 100) {
 		msm_enqueue(&sync->event_q, &qcmd->list_config);
+        } else if (sync->event_q.len > 100) {
+                pr_err("%s, Error Event Queue limit exceeded f_q = %d, e_q = %d\n",
+                        __func__, sync->frame_q.len, sync->event_q.len);
+                qcmd->error_code = 0xffffffff;
+                qcmd->command = NULL;
+                msm_enqueue(&sync->frame_q, &qcmd->list_frame);
 	} else {
 		pr_err("%s, Error Queue limit exceeded f_q = %d, e_q = %d\n",
 			__func__, sync->frame_q.len, sync->event_q.len);

@@ -103,6 +103,7 @@ struct usb_function {
 
 	struct usb_configuration	*config;
 	/* disabled is zero if the function is enabled */
+	int				disabled;
 	int				hidden;
 
 	/* REVISIT:  bind() functions can be marked __init, which
@@ -381,3 +382,4 @@ extern int usb_string_id(struct usb_composite_dev *c);
 	dev_info(&(d)->gadget->dev , fmt , ## args)
 
 #endif	/* __LINUX_USB_COMPOSITE_H */
+

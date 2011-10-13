@@ -67,7 +67,7 @@ static inline void kgsl_pwrctrl_tz_reset(void)
 	__secure_tz_entry(TZ_RESET_ID, 0);
 }
 
-void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
+static void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 					unsigned int new_level)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
@@ -471,7 +471,6 @@ int kgsl_pwrctrl_irq(struct kgsl_device *device, unsigned int pwrflag)
 	default:
 		return KGSL_FAILURE;
 	}
-	register_early_suspend(&device->display_off);
 }
 
 void kgsl_pwrctrl_close(struct kgsl_device *device)
@@ -479,8 +478,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	KGSL_PWR_DBG("close device %d\n", device->id);
-
-	unregister_early_suspend(&device->display_off);
 
 	if (pwr->interrupt_num > 0) {
 		if (pwr->have_irq) {

@@ -96,13 +96,6 @@ static struct kgsl_yamato_device yamato_device = {
 		.mutex = __MUTEX_INITIALIZER(yamato_device.dev.mutex),
 		.state = KGSL_STATE_INIT,
 		.active_cnt = 0,
-                .display_off = {
-		#ifdef CONFIG_HAS_EARLYSUSPEND
-                       .level = EARLY_SUSPEND_LEVEL_STOP_DRAWING,
-                       .suspend = kgsl_early_suspend_driver,
-                       .resume = kgsl_late_resume_driver,
-		#endif
-                },
 	},
 	.gmemspace = {
 		.gpu_base = 0,
@@ -860,22 +853,7 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
 	}
-#if 0
-	else {
-		unsigned int override1, override2, i = 3; /*try writing override1 & 2, three times.*/
-		while(i){
-			kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x7BFFFFFA);
-			kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE1, &override1);
-			kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x000001F4);
-			kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE2, &override2);
-			if (((override1 & 0x7BFFFFFA) == 0x7BFFFFFA) &&
-				((override2 & 0x000001F4) == 0x000001F4))
-				break;
-			KGSL_DRV_ERR("OVERRIDE1 & OVERRIDE2 Error!\n");
-			i--;
-		}
-        }
-#endif
+
 	kgsl_sharedmem_set(&device->memstore, 0, 0,
 			   device->memstore.size);
 

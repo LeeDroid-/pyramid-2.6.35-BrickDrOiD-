@@ -37,7 +37,6 @@
 #include <linux/msm_kgsl.h>
 #include <linux/idr.h>
 #include <linux/wakelock.h>
-#include <linux/earlysuspend.h>
 
 #include <asm/atomic.h>
 
@@ -168,7 +167,6 @@ struct kgsl_device {
 	struct workqueue_struct *work_queue;
 	struct idr context_idr;
 	struct wake_lock idle_wakelock;
-	struct early_suspend display_off;
 };
 
 struct kgsl_context {

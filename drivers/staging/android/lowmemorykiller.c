@@ -40,19 +40,31 @@
 
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
-	0,
+/*	0,
 	1,
 	6,
-	12,
+	12,*/
+	0,
+	1,
+	2,
+	4,
+	6,
+	15,
 };
-static int lowmem_adj_size = 4;
+static int lowmem_adj_size = 6;
 static size_t lowmem_minfree[6] = {
-	3 * 512,	/* 6MB */
-	2 * 1024,	/* 8MB */
-	4 * 1024,	/* 16MB */
-	16 * 1024,	/* 64MB */
+//	3 * 512,	/* 6MB */
+//	2 * 1024,	/* 8MB */
+//	4 * 1024,	/* 16MB */
+//	16 * 1024,	/* 64MB */
+	2560,
+	4096,
+	5632,
+	10240,
+	11776,
+	14848,
 };
-static int lowmem_minfree_size = 4;
+static int lowmem_minfree_size = 6;
 
 static size_t lowmem_minfile[6] = {
 	1536,

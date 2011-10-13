@@ -216,7 +216,7 @@ struct msm_isp_evt_msg {
 	unsigned short msg_id;
 	unsigned int len;	/* size in, number of bytes out */
 	/* maximum possible data size that can be
-i	  sent to user space as v4l2 data structure
+	  sent to user space as v4l2 data structure
 	  is only of 64 bytes */
 	uint8_t data[48];
 };
@@ -406,9 +406,9 @@ struct outputCfg {
 #define OUTPUT_2_AND_CAMIF_TO_AXI_VIA_OUTPUT_1 6
 #ifdef CONFIG_CAMERA_ZSL
 #define OUTPUT_1_2_AND_3 7
-#define LAST_AXI_OUTPUT_MODE_ENUM 8
+#define LAST_AXI_OUTPUT_MODE_ENUM = OUTPUT_1_2_AND_3 7
 #else
-#define LAST_AXI_OUTPUT_MODE_ENUM = OUTPUT_2_AND_CAMIF_TO_AXI_VIA_OUTPUT_1 7
+#define LAST_AXI_OUTPUT_MODE_ENUM = 8
 #endif
 
 #define MSM_FRAME_PREV_1	0

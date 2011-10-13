@@ -18,7 +18,7 @@
 
 /* IO devices are mapped at 0xF8000000 and above */
 #ifdef CONFIG_VMSPLIT_2G
-#define VMALLOC_END	  (PAGE_OFFSET + 0x60000000)
+#define VMALLOC_END	  (PAGE_OFFSET + 0x70000000)
 #else
 #ifdef CONFIG_ARCH_MSM8X60
 #define VMALLOC_END	  (PAGE_OFFSET + 0x3E000000)

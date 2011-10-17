@@ -167,8 +167,8 @@ struct kgsl_device {
 
 	struct workqueue_struct *work_queue;
 	struct idr context_idr;
-	struct wake_lock idle_wakelock;
 	struct early_suspend display_off;
+	struct wake_lock idle_wakelock;
 };
 
 struct kgsl_context {

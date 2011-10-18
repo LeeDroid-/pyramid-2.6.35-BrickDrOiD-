@@ -79,6 +79,9 @@
 	 | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)	\
 	 | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT))
 
+/* max msecs to wait for gpu to finish its operation(s) */
+#define MAX_WAITGPU_SECS (HZ + HZ/2)
+
 static struct kgsl_yamato_device yamato_device = {
 	.dev = {
 		.name = "kgsl-3d0",
@@ -96,6 +99,13 @@ static struct kgsl_yamato_device yamato_device = {
 		.mutex = __MUTEX_INITIALIZER(yamato_device.dev.mutex),
 		.state = KGSL_STATE_INIT,
 		.active_cnt = 0,
+#ifdef CONFIG_HAS_EARLYSUSPEND
+		.display_off = {
+			.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING,
+			.suspend = kgsl_early_suspend_driver,
+			.resume = kgsl_late_resume_driver,
+		},
+#endif
 	},
 	.gmemspace = {
 		.gpu_base = 0,

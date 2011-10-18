@@ -877,6 +877,7 @@ struct vfe31_output_ch {
 	int8_t ch0;
 	int8_t ch1;
 	int8_t ch2;
+	uint32_t  capture_cnt;
 	uint32_t  frame_drop_cnt;
 };
 

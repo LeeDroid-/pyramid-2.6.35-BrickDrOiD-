@@ -193,7 +193,8 @@ void arch_reset(char mode, const char *cmd)
 	if(atomic_add_return(1, &restart_counter) != 1)
 		return;
 
-	printk(KERN_NOTICE "%s: Going down for restart now. Bricked-Kernel\n", __func__);
+	printk(KERN_NOTICE "GLaDOS: Oh Joy... Another reboot. Have you nothing else to do?\n");
+	printk(KERN_NOTICE "GLaDOS: Maybe loosing those extra 20 pounds would be a nice idea.\n");
 	printk(KERN_NOTICE "%s: mode %d\n", __func__, mode);
 	if (cmd) {
 		printk(KERN_NOTICE "%s: restart command `%s'.\n", __func__, cmd);

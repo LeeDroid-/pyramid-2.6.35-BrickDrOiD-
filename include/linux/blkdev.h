@@ -93,6 +93,13 @@ enum rq_flag_bits {
 	__REQ_FAILFAST_TRANSPORT, /* no driver retries of transport errors */
 	__REQ_FAILFAST_DRIVER,	/* no driver retries of driver errors */
 	/* above flags must match BIO_RW_* */
+
+	/* bio only flags */
+	__REQ_UNPLUG,		/* unplug the immediately after submission */
+	__REQ_RAHEAD,		/* read ahead, can fail anytime */
+	__REQ_THROTTLED,	/* This bio has already been subjected to
+				 * throttling rules. Don't do it again. */
+
 	__REQ_DISCARD,		/* request to discard sectors */
 	__REQ_SORTED,		/* elevator knows about this request */
 	__REQ_SOFTBARRIER,	/* may not be passed by ioscheduler */
@@ -122,6 +129,11 @@ enum rq_flag_bits {
 #define REQ_FAILFAST_DEV	(1 << __REQ_FAILFAST_DEV)
 #define REQ_FAILFAST_TRANSPORT	(1 << __REQ_FAILFAST_TRANSPORT)
 #define REQ_FAILFAST_DRIVER	(1 << __REQ_FAILFAST_DRIVER)
+
+#define REQ_UNPLUG		(1 << __REQ_UNPLUG)
+#define REQ_RAHEAD		(1 << __REQ_RAHEAD)
+#define REQ_THROTTLED		(1 << __REQ_THROTTLED)
+
 #define REQ_DISCARD	(1 << __REQ_DISCARD)
 #define REQ_SORTED	(1 << __REQ_SORTED)
 #define REQ_SOFTBARRIER	(1 << __REQ_SOFTBARRIER)
@@ -1020,6 +1032,15 @@ extern int blkdev_issue_discard(struct block_device *bdev, sector_t sector,
 		sector_t nr_sects, gfp_t gfp_mask, unsigned long flags);
 extern int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 			sector_t nr_sects, gfp_t gfp_mask, unsigned long flags);
+
+static inline int sb_issue_discard_new(struct super_block *sb, sector_t block,
+		sector_t nr_blocks, gfp_t gfp_mask, unsigned long flags)
+{
+	return blkdev_issue_discard(sb->s_bdev, block << (sb->s_blocksize_bits - 9),
+				    nr_blocks << (sb->s_blocksize_bits - 9),
+				    gfp_mask, flags);
+}
+
 static inline int sb_issue_discard(struct super_block *sb,
 				   sector_t block, sector_t nr_blocks)
 {

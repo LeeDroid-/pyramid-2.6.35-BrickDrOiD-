@@ -42,6 +42,9 @@
 	c -= b;  c ^= rol32(b, 4);  b += a;	\
 }
 
+/* The golden ration: an arbitrary value */
+#define JHASH_GOLDEN_RATIO	0x9e3779b9
+
 /* __jhash_final - final mixing of 3 32-bit values (a,b,c) into c */
 #define __jhash_final(a, b, c)			\
 {						\

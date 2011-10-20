@@ -281,10 +281,11 @@ struct msm_sync {
 	 */
 	struct msm_device_queue frame_q;
 	int unblock_poll_frame;
-#ifdef CONFIG_CAMERA_ZSL
 	int unblock_poll_pic_frame;
-	uint8_t send_output_s;
-#endif
+	atomic_t send_output_s;
+
+	atomic_t num_drop_output_s; // num of snapshot frames to drop
+	atomic_t has_dropped_output_s; // whether the latest snapshot frame was dropped or not.
 
 	/* This queue contains snapshot frames.  It is accessed by the DSP (in
 	 * interrupt context, and by the control thread.
@@ -418,10 +419,9 @@ struct msm_v4l2_driver {
 	int (*get_frame) (struct msm_sync *, struct msm_frame *);
 	int (*put_frame) (struct msm_sync *, struct msm_frame *);
 #ifdef CONFIG_CAMERA_ZSL
-	int (*get_pict) (struct msm_sync *, struct msm_frame *);
-#else
-	int (*get_pict) (struct msm_sync *, struct msm_ctrl_cmd *);
+	int (*get_pict_zsl) (struct msm_sync *, struct msm_frame *);
 #endif
+	int (*get_pict) (struct msm_sync *, struct msm_ctrl_cmd *);
 	unsigned int (*drv_poll) (struct msm_sync *, struct file *,
 				struct poll_table_struct *);
 };

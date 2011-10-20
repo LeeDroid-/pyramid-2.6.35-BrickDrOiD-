@@ -27,8 +27,8 @@
  *
  */
 
-#ifndef __MSM_VFE31_ZSL_H__
-#define __MSM_VFE31_ZSL_H__
+#ifndef __MSM_VFE31_H__
+#define __MSM_VFE31_H__
 
 #define TRUE  1
 #define FALSE 0
@@ -164,8 +164,6 @@
 #define VFE_AF_PINGPONG_STATUS_BIT       0x100
 #define VFE_AWB_PINGPONG_STATUS_BIT      0x200
 
-#define VFE31_OUTPUT_MODE_P (0x1 << 3)
-#define VFE31_OUTPUT_MODE_T (0x1 << 4)
 
 enum VFE31_DMI_RAM_SEL {
 	 NO_MEM_SELECTED          = 0,
@@ -296,8 +294,8 @@ enum  VFE_STATE {
 #define V31_ASYNC_TIMER_SETTING   105
 #define V31_LIVESHOT              106
 #define V31_STEREOCAM             107
-
 #define V31_ZSL                   108
+
 #define V31_CAMIF_OFF             0x000001E4
 #define V31_CAMIF_LEN             32
 
@@ -525,11 +523,6 @@ enum VFE_START_INPUT_SOURCE {
 	VFE_START_INPUT_SOURCE_TESTGEN,
 	VFE_START_INPUT_SOURCE_AXI,
 	VFE_START_INPUT_SOURCE_INVALID
-};
-
-enum VFE_START_OPERATION_MODE {
-	VFE_START_OPERATION_MODE_CONTINUOUS,
-	VFE_START_OPERATION_MODE_SNAPSHOT
 };
 
 enum VFE_START_PIXEL_PATTERN {
@@ -1029,9 +1022,8 @@ struct vfe31_ctrl_type {
 	int8_t update_ack_pending;
 	int8_t req_start_video_rec;
 	int8_t req_stop_video_rec;
-
-        int8_t output0_available;
-        int8_t output1_available;
+	int8_t output0_available;
+	int8_t output1_available;
 	spinlock_t  tasklet_lock;
 	struct list_head tasklet_q;
 	int vfeirq;
@@ -1055,7 +1047,7 @@ struct vfe31_ctrl_type {
 	uint32_t output2Period;
 	uint32_t vfeFrameSkipCount;
 	uint32_t vfeFrameSkipPeriod;
-        uint32_t rolloff_update;
+	uint32_t rolloff_update;
 	struct vfe_stats_control afStatsControl;
 	struct vfe_stats_control awbStatsControl;
 	struct vfe_stats_control aecStatsControl;
@@ -1084,4 +1076,4 @@ struct vfe_cmd_stats_ack{
 struct vfe_cmd_stats_buf{
    uint32_t statsBuf[VFE_STATS_BUFFER_COUNT];
 };
-#endif /* __MSM_VFE31_ZSL_H__ */
+#endif /* __MSM_VFE31_H__ */

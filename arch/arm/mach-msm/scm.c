@@ -189,17 +189,18 @@ static u32 smc(u32 cmd_addr)
 	register u32 r0 asm("r0") = 1;
 	register u32 r1 asm("r1") = (u32)&context_id;
 	register u32 r2 asm("r2") = cmd_addr;
-	asm(
-		__asmeq("%0", "r0")
-		__asmeq("%1", "r0")
-		__asmeq("%2", "r1")
-		__asmeq("%3", "r2")
-		"1:smc	#0	@ switch to secure world\n"
-		"cmp	r0, #1				\n"
-		"beq	1b				\n"
-		: "=r" (r0)
-		: "r" (r0), "r" (r1), "r" (r2)
-		: "r3", "cc");
+	do {
+		asm volatile(
+			__asmeq("%0", "r0")
+			__asmeq("%1", "r0")
+			__asmeq("%2", "r1")
+			__asmeq("%3", "r2")
+			"smc	#0	@ switch to secure world\n"
+			: "=r" (r0)
+			: "r" (r0), "r" (r1), "r" (r2)
+			: "r3");
+	} while (r0 == SCM_INTERRUPTED);
+
 	return r0;
 }
 
@@ -214,17 +215,26 @@ static int __scm_call(const struct scm_command *cmd)
 	 * side in the buffer.
 	 */
 	flush_cache_all();
-	do {
-		ret = smc(cmd_addr);
-		if (ret < 0) {
-			pr_info("smc ret = %d (%x)\n", ret, ret);
-			ret = scm_remap_error(ret);
-			pr_info("smc remaped ret = %d (%x)\n", ret, ret);
-			break;
-		}
-	} while (ret == SCM_INTERRUPTED);
+	ret = smc(cmd_addr);
+	if (ret < 0)
+		ret = scm_remap_error(ret);
 
 	return ret;
+}
+
+static u32 cacheline_size;
+
+static void scm_inv_range(unsigned long start, unsigned long end)
+{
+	start = round_down(start, cacheline_size);
+	end = round_up(end, cacheline_size);
+	while (start < end) {
+		asm ("mcr p15, 0, %0, c7, c6, 1" : : "r" (start)
+		     : "memory");
+		start += cacheline_size;
+	}
+	dsb();
+	isb();
 }
 
 /**
@@ -244,6 +254,7 @@ int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 	int ret;
 	struct scm_command *cmd;
 	struct scm_response *rsp;
+	unsigned long start, end;
 
 	cmd = alloc_scm_command(cmd_len, resp_len);
 	if (!cmd)
@@ -260,10 +271,14 @@ int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		goto out;
 
 	rsp = scm_command_to_response(cmd);
+	start = (unsigned long)rsp;
+
 	do {
-		dmac_inv_range((void *)rsp,
-				scm_get_response_buffer(rsp) + resp_len);
+		scm_inv_range(start, start + sizeof(*rsp));
 	} while (!rsp->is_complete);
+
+	end = (unsigned long)scm_get_response_buffer(rsp) + resp_len;
+	scm_inv_range(start, end);
 
 	if (resp_buf)
 		memcpy(resp_buf, scm_get_response_buffer(rsp), resp_len);
@@ -272,6 +287,73 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(scm_call);
+
+#define SCM_CLASS_REGISTER	(0x2 << 8)
+#define SCM_MASK_IRQS		BIT(5)
+#define SCM_ATOMIC(svc, cmd, n) (((((svc) << 10)|((cmd) & 0x3ff)) << 12) | \
+				SCM_CLASS_REGISTER | \
+				SCM_MASK_IRQS | \
+				(n & 0xf))
+
+/**
+ * scm_call_atomic1() - Send an atomic SCM command with one argument
+ * @svc_id: service identifier
+ * @cmd_id: command identifier
+ * @arg1: first argument
+ *
+ * This shall only be used with commands that are guaranteed to be
+ * uninterruptable, atomic and SMP safe.
+ */
+u32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
+{
+	int context_id;
+	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 1);
+	register u32 r1 asm("r1") = (u32)&context_id;
+	register u32 r2 asm("r2") = arg1;
+
+	asm volatile(
+		__asmeq("%0", "r0")
+		__asmeq("%1", "r0")
+		__asmeq("%2", "r1")
+		__asmeq("%3", "r2")
+		"smc	#0	@ switch to secure world\n"
+		: "=r" (r0)
+		: "r" (r0), "r" (r1), "r" (r2)
+		: "r3");
+	return r0;
+}
+EXPORT_SYMBOL(scm_call_atomic1);
+
+/**
+ * scm_call_atomic2() - Send an atomic SCM command with two arguments
+ * @svc_id: service identifier
+ * @cmd_id: command identifier
+ * @arg1: first argument
+ * @arg2: second argument
+ *
+ * This shall only be used with commands that are guaranteed to be
+ * uninterruptable, atomic and SMP safe.
+ */
+u32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
+{
+	int context_id;
+	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 2);
+	register u32 r1 asm("r1") = (u32)&context_id;
+	register u32 r2 asm("r2") = arg1;
+	register u32 r3 asm("r3") = arg2;
+
+	asm volatile(
+		__asmeq("%0", "r0")
+		__asmeq("%1", "r0")
+		__asmeq("%2", "r1")
+		__asmeq("%3", "r2")
+		__asmeq("%4", "r3")
+		"smc	#0	@ switch to secure world\n"
+		: "=r" (r0)
+		: "r" (r0), "r" (r1), "r" (r2), "r" (r3));
+	return r0;
+}
+EXPORT_SYMBOL(scm_call_atomic2);
 
 u32 scm_get_version(void)
 {
@@ -284,16 +366,18 @@ u32 scm_get_version(void)
 		return version;
 
 	mutex_lock(&scm_lock);
-	asm(
-		__asmeq("%0", "r1")
-		__asmeq("%1", "r0")
-		__asmeq("%2", "r1")
-		"1:smc	#0	@ switch to secure world\n"
-		"cmp	r0, #1				\n"
-		"beq	1b				\n"
-		: "=r" (r1)
-		: "r" (r0), "r" (r1)
-		: "r2", "r3", "cc");
+	do {
+		asm volatile(
+			__asmeq("%0", "r0")
+			__asmeq("%1", "r1")
+			__asmeq("%2", "r0")
+			__asmeq("%3", "r1")
+			"smc	#0	@ switch to secure world\n"
+			: "=r" (r0), "=r" (r1)
+			: "r" (r0), "r" (r1)
+			: "r2", "r3");
+	} while (r0 == SCM_INTERRUPTED);
+
 	version = r1;
 	mutex_unlock(&scm_lock);
 

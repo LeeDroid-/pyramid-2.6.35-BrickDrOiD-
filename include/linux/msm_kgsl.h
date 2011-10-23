@@ -50,7 +50,7 @@
 #define KGSL_FLAGS_RESERVED2   0x00000080
 #define KGSL_FLAGS_SOFT_RESET  0x00000100
 
-#define KGSL_MAX_PWRLEVELS 5
+#define KGSL_MAX_PWRLEVELS 9
 
 /* device id */
 enum kgsl_deviceid {

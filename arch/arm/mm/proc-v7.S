@@ -46,14 +46,11 @@ ENTRY(cpu_v7_proc_init)
 ENDPROC(cpu_v7_proc_init)
 
 ENTRY(cpu_v7_proc_fin)
-	stmfd	sp!, {lr}
-	cpsid	if				@ disable interrupts
-	bl	v7_flush_kern_cache_all
 	mrc	p15, 0, r0, c1, c0, 0		@ ctrl register
 	bic	r0, r0, #0x1000			@ ...i............
 	bic	r0, r0, #0x0006			@ .............ca.
 	mcr	p15, 0, r0, c1, c0, 0		@ disable caches
-	ldmfd	sp!, {pc}
+	mov	pc, lr
 ENDPROC(cpu_v7_proc_fin)
 
 /*
@@ -67,7 +64,14 @@ ENDPROC(cpu_v7_proc_fin)
  */
 	.align	5
 ENTRY(cpu_v7_reset)
-	mov	pc, r0
+	mrc     p15, 0, r1, c1, c0, 0           @ ctrl register
+	bic     r1, r1, #0x0001                 @ ...............m
+        mcr     p15, 0, r1, c1, c0, 0           @ Turn off MMU
+        mcr     p15, 0, ip, c8, c7, 0           @ invalidate I & D,flush TLB
+        mcr     p15, 0, ip, c7, c5, 6           @ flush BTC
+        dsb
+        isb
+	mov     pc,r0
 ENDPROC(cpu_v7_reset)
 
 /*
@@ -195,13 +199,14 @@ cpu_v7_name:
  *	It is assumed that:
  *	- cache type register is implemented
  */
-__v7_setup:
+__v7_ca9mp_setup:
 #if defined(CONFIG_SMP) && !defined(CONFIG_ARCH_MSM_SCORPIONMP)
 	mrc	p15, 0, r0, c1, c0, 1
 	tst	r0, #(1 << 6)			@ SMP/nAMP mode enabled?
 	orreq	r0, r0, #(1 << 6) | (1 << 0)	@ Enable SMP/nAMP mode and
 	mcreq	p15, 0, r0, c1, c0, 1		@ TLB ops broadcasting
 #endif
+__v7_setup:
 	adr	r12, __v7_setup_stack		@ the local stack
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
 	bl	v7_flush_dcache_all
@@ -267,7 +272,7 @@ __v7_setup:
 	mcr     p15, 0, r0, c1, c0, 1           @ write ACTLR
 #endif
 
-#if defined (CONFIG_ARCH_MSM_SCORPIONMP)
+#if defined (CONFIG_ARCH_MSM_SCORPIONMP) && !defined (CONFIG_ARCH_MSM8960)
 	mrc     p15, 3, r0, c15, c0, 2  @ optimal setting for Scorpion MP
 	orr	    r0, r0, #0x1 << 21
 	mcr     p15, 3, r0, c15, c0, 2
@@ -360,6 +365,29 @@ cpu_elf_name:
 	.align
 
 	.section ".proc.info.init", #alloc, #execinstr
+
+	.type   __v7_ca9mp_proc_info, #object
+__v7_ca9mp_proc_info:
+	.long	0x410fc090		@ Required ID value
+	.long	0xff0ffff0		@ Mask for ID
+	.long   PMD_TYPE_SECT | \
+		PMD_SECT_AP_WRITE | \
+		PMD_SECT_AP_READ | \
+		PMD_FLAGS
+	.long   PMD_TYPE_SECT | \
+		PMD_SECT_XN | \
+		PMD_SECT_AP_WRITE | \
+		PMD_SECT_AP_READ
+	b	__v7_ca9mp_setup
+	.long	cpu_arch_name
+	.long	cpu_elf_name
+	.long	HWCAP_SWP|HWCAP_HALF|HWCAP_THUMB|HWCAP_FAST_MULT|HWCAP_EDSP
+	.long	cpu_v7_name
+	.long	v7_processor_functions
+	.long	v7wbi_tlb_fns
+	.long	v6_user_fns
+	.long	v7_cache_fns
+	.size	__v7_ca9mp_proc_info, . - __v7_ca9mp_proc_info
 
 	/*
 	 * Match any ARMv7 processor core.

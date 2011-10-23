@@ -94,7 +94,7 @@
 /* Speed bin register. */
 #define QFPROM_SPEED_BIN_ADDR		(MSM_QFPROM_BASE + 0x00C0)
 
-#define FREQ_TABLE_SIZE			28
+#define FREQ_TABLE_SIZE			29
 
 static const void * const clk_ctl_addr[] = {SPSS0_CLK_CTL_ADDR,
 			SPSS1_CLK_CTL_ADDR};
@@ -242,6 +242,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl_oc[] = {
   { {1, 1}, 1782000,  ACPU_SCPLL, 0, 0, 1, 0x21, L2(21), 1325000, 0x03006000},
   { {1, 1}, 1836000,  ACPU_SCPLL, 0, 0, 1, 0x22, L2(21), 1337500, 0x03006000},
   { {1, 1}, 1890000,  ACPU_SCPLL, 0, 0, 1, 0x23, L2(21), 1350000, 0x03006000},
+  { {1, 1}, 1914000,  ACPU_SCPLL, 0, 0, 1, 0x23, L2(22), 1350000, 0x03006000},
   { {0, 0}, 0 },
 };
 

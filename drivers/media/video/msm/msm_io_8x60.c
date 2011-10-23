@@ -168,18 +168,25 @@ static struct msm_bus_vectors cam_preview_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_SMI,
+//		.ab  = 527357952UL,
+//		.ib  = 843772723UL,
 		.ab  = 2484000000UL,
 		.ib  = 2484000000UL,
+
 	},
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
+//		.ab  = 596293632UL,
+//		.ib  = 954069811UL,
 		.ab  = 2484000000UL,
 		.ib  = 2484000000UL,
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
 		.dst = MSM_BUS_SLAVE_SMI,
+//		.ab  = 319610880UL,
+//		.ib  = 511377408UL,
 		.ab  = 0,
 		.ib  = 0,
 	},
@@ -273,13 +280,13 @@ static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 
 void msm_io_w(u32 data, void __iomem *addr)
 {
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	CDBG("[CAM] %s: %08x %08x\n", __func__, (int) (addr), (data));
 	writel((data), (addr));
 }
 
 void msm_io_w_mb(u32 data, void __iomem *addr)
 {
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	CDBG("[CAM] %s: %08x %08x\n", __func__, (int) (addr), (data));
 	wmb();
 	writel((data), (addr));
 	wmb();
@@ -288,7 +295,7 @@ void msm_io_w_mb(u32 data, void __iomem *addr)
 u32 msm_io_r(void __iomem *addr)
 {
 	uint32_t data = readl(addr);
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	CDBG("[CAM] %s: %08x %08x\n", __func__, (int) (addr), (data));
 	return data;
 }
 
@@ -298,7 +305,7 @@ u32 msm_io_r_mb(void __iomem *addr)
 	rmb();
 	data = readl(addr);
 	rmb();
-	CDBG("%s: %08x %08x\n", __func__, (int) (addr), (data));
+	CDBG("[CAM] %s: %08x %08x\n", __func__, (int) (addr), (data));
 	return data;
 }
 
@@ -319,7 +326,7 @@ void msm_io_dump(void __iomem *addr, int size)
 	int i;
 	u32 *p = (u32 *) addr;
 	u32 data;
-	CDBG("%s: %p %d\n", __func__, addr, size);
+	CDBG("[CAM] %s: %p %d\n", __func__, addr, size);
 	line_str[0] = '\0';
 	p_str = line_str;
 	for (i = 0; i < size/4; i++) {
@@ -331,18 +338,18 @@ void msm_io_dump(void __iomem *addr, int size)
 		sprintf(p_str, "%08x ", data);
 		p_str += 9;
 		if ((i + 1) % 4 == 0) {
-			CDBG("%s\n", line_str);
+			CDBG("[CAM] %s\n", line_str);
 			line_str[0] = '\0';
 			p_str = line_str;
 		}
 	}
 	if (line_str[0] != '\0')
-		CDBG("%s\n", line_str);
+		CDBG("[CAM] %s\n", line_str);
 }
 
 void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len)
 {
-	CDBG("%s: %p %p %d\n", __func__, dest_addr, src_addr, len);
+	CDBG("[CAM] %s: %p %p %d\n", __func__, dest_addr, src_addr, len);
 	msm_io_memcpy_toio(dest_addr, src_addr, len / 4);
 	msm_io_dump(dest_addr, len);
 }
@@ -354,11 +361,11 @@ static void msm_camera_fs_enable(void)
 
 	fs_vfe = regulator_get(NULL, "fs_vfe");
 	if (IS_ERR(fs_vfe)) {
-		CDBG("%s: Regulator FS_VFE get failed %ld\n", __func__,
+		CDBG("[CAM] %s: Regulator FS_VFE get failed %ld\n", __func__,
 			PTR_ERR(fs_vfe));
 		fs_vfe = NULL;
 	} else if (regulator_enable(fs_vfe)) {
-		CDBG("%s: Regulator FS_VFE enable failed\n", __func__);
+		CDBG("[CAM] %s: Regulator FS_VFE enable failed\n", __func__);
 		regulator_put(fs_vfe);
 	}
 	return;
@@ -377,12 +384,12 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 {
 	int rc = 0;
 	struct clk *clk = NULL;
-	pr_info("%s clktype:%d",__func__,clktype);
+	pr_info("[CAM] %s clktype:%d",__func__,clktype);
 	switch (clktype) {
 	case CAMIO_CAM_MCLK_CLK:
 		camio_cam_clk =
 		clk = clk_get(NULL, "cam_clk");
-		pr_info("%s clk:0x%x",__func__,(unsigned int)clk);
+		pr_info("[CAM] %s clk:0x%x",__func__,(unsigned int)clk);
 		msm_camio_clk_rate_set_2(clk, camio_clk.mclk_clk_rate);
 		break;
 
@@ -447,7 +454,7 @@ int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 	case CAMIO_VPE_CLK:
 		camio_vpe_clk =
 		clk = clk_get(NULL, "vpe_clk");
-		msm_camio_clk_set_min_rate(clk, 200000000);
+		msm_camio_clk_set_min_rate(clk, 160000000); /*200000000);*/
 		break;
 
 	case CAMIO_VPE_PCLK:
@@ -541,13 +548,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 	return rc;
 }
 
-void msm_camio_vfe_clk_rate_set(int rate)
-{
-       struct clk *clk = camio_vfe_clk;
-       if (rate > clk_get_rate(clk))
-               clk_set_rate(clk, rate);
-}
-
 void msm_camio_clk_rate_set(int rate)
 {
 	struct clk *clk = camio_cam_clk;
@@ -569,11 +569,11 @@ static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
 	uint32_t irq,irq2;
 	irq = msm_io_r(csibase + MIPI_INTERRUPT_STATUS);
 	irq2 = msm_io_r(csibase + 0x5C);
-	//pr_info("%s irq MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
-	//pr_info("%s irq2 MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq2);
+	//pr_info("[CAM] %s irq MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
+	//pr_info("[CAM] %s irq2 MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq2);
 
 
-	CDBG("%s MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
+	CDBG("[CAM] %s MIPI_INTERRUPT_STATUS = 0x%x\n", __func__, irq);
 
 	if (irq & MIPI_IMASK_ERROR_OCCUR) {
 		if (irq & MIPI_IMASK_ERR_SOT)
@@ -633,7 +633,7 @@ int msm_camio_jpeg_clk_disable(void)
 	if (fs_ijpeg) {
 		rc = regulator_disable(fs_ijpeg);
 		if (rc < 0) {
-			CDBG("%s: Regulator disable failed %d\n", __func__, rc);
+			CDBG("[CAM] %s: Regulator disable failed %d\n", __func__, rc);
 			return rc;
 		}
 		regulator_put(fs_ijpeg);
@@ -642,7 +642,7 @@ int msm_camio_jpeg_clk_disable(void)
 	if (rc < 0)
 		return rc;
 	rc = msm_camio_clk_disable(CAMIO_JPEG_CLK);
-	CDBG("%s: exit %d\n", __func__, rc);
+	CDBG("[CAM] %s: exit %d\n", __func__, rc);
 	return rc;
 }
 
@@ -657,14 +657,14 @@ int msm_camio_jpeg_clk_enable(void)
 		return rc;
 	fs_ijpeg = regulator_get(NULL, "fs_ijpeg");
 	if (IS_ERR(fs_ijpeg)) {
-		CDBG("%s: Regulator FS_IJPEG get failed %ld\n", __func__,
+		CDBG("[CAM] %s: Regulator FS_IJPEG get failed %ld\n", __func__,
 			PTR_ERR(fs_ijpeg));
 		fs_ijpeg = NULL;
 	} else if (regulator_enable(fs_ijpeg)) {
-		CDBG("%s: Regulator FS_IJPEG enable failed\n", __func__);
+		CDBG("[CAM] %s: Regulator FS_IJPEG enable failed\n", __func__);
 		regulator_put(fs_ijpeg);
 	}
-	CDBG("%s: exit %d\n", __func__, rc);
+	CDBG("[CAM] %s: exit %d\n", __func__, rc);
 	return rc;
 }
 
@@ -688,11 +688,11 @@ int msm_camio_vpe_clk_enable(void)
 	int rc = 0;
 	fs_vpe = regulator_get(NULL, "fs_vpe");
 	if (IS_ERR(fs_vpe)) {
-		CDBG("%s: Regulator FS_VPE get failed %ld\n", __func__,
+		CDBG("[CAM] %s: Regulator FS_VPE get failed %ld\n", __func__,
 			PTR_ERR(fs_vpe));
 		fs_vpe = NULL;
 	} else if (regulator_enable(fs_vpe)) {
-		CDBG("%s: Regulator FS_VPE enable failed\n", __func__);
+		CDBG("[CAM] %s: Regulator FS_VPE enable failed\n", __func__);
 		regulator_put(fs_vpe);
 	}
 
@@ -733,7 +733,11 @@ int msm_camio_enable(struct platform_device *pdev)
 	
 	clkctl = ioremap(0x4000000,
 		0x400);
-		
+	if (!clkctl) {
+		rc = -ENOMEM;
+		goto clkctl_fail;
+	}
+
 	csibase = ioremap(camio_ext.csiphy,
 		camio_ext.csisz);
 	if (!csibase) {
@@ -756,7 +760,7 @@ int msm_camio_enable(struct platform_device *pdev)
 #endif
 		(0x0 << MIPI_PHY_D0_CONTROL2_LP_REC_EN_SHFT) |
 		(0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
-	CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_D0_CONTROL2);
 	msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL2);
 	msm_io_w(val, csibase + MIPI_PHY_D2_CONTROL2);
@@ -764,13 +768,15 @@ int msm_camio_enable(struct platform_device *pdev)
 
 	val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
 		(0x0 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
-	CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
 	return 0;
 
 csi_irq_fail:
 	iounmap(csibase);
 csi_busy:
+	iounmap(clkctl);
+clkctl_fail:
 	release_mem_region(camio_ext.csiphy, camio_ext.csisz);
 common_fail:
 	msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
@@ -793,7 +799,7 @@ void msm_camio_disable(struct platform_device *pdev) {
                                 MIPI_CALIBRATION_CONTROL_SWCAL_STRENGTH_OVERRIDE_EN_SHFT) |
                                 (0x0 << MIPI_CALIBRATION_CONTROL_CAL_SW_HW_MODE_SHFT) |
                                 (0x0 << MIPI_CALIBRATION_CONTROL_MANUAL_OVERRIDE_EN_SHFT);
-                CDBG("%s MIPI_CALIBRATION_CONTROL val=0x%x\n", __func__, val);
+                CDBG("[CAM] %s MIPI_CALIBRATION_CONTROL val=0x%x\n", __func__, val);
                 msm_io_w(val, csibase + MIPI_CALIBRATION_CONTROL);
 
                 val = (20 <<
@@ -801,7 +807,7 @@ void msm_camio_disable(struct platform_device *pdev) {
                                 (0x0F << MIPI_PHY_D0_CONTROL2_HS_TERM_IMP_SHFT) |
                                 (0x0 << MIPI_PHY_D0_CONTROL2_LP_REC_EN_SHFT) |
                                 (0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
-                CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+                CDBG("[CAM] %s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
                 msm_io_w(val, csibase + MIPI_PHY_D0_CONTROL2);
                 msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL2);
                 msm_io_w(val, csibase + MIPI_PHY_D2_CONTROL2);
@@ -809,21 +815,17 @@ void msm_camio_disable(struct platform_device *pdev) {
 
                 val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
                                 (0x0 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
-                CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+                CDBG("[CAM] %s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
                 msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
                 msleep(10);
 
-	        val = msm_io_r(csibase + MIPI_PHY_D1_CONTROL);
-	        val &= ~((0x1 << MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT) |
-	        (0x1 << MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT));
-	        CDBG("%s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
-	        msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL);
-	        usleep_range(5000, 6000);
-
+                /*clear IRQ bits referred from csi_config*/
+                msm_io_w(0xFFF7F3FF, csibase + MIPI_INTERRUPT_STATUS);
                 free_irq(camio_ext.csiirq, 0);
                 iounmap(csibase);
+                iounmap(clkctl);
                 release_mem_region(camio_ext.csiphy, camio_ext.csisz);
-                CDBG("disable clocks\n");
+                CDBG("[CAM] disable clocks\n");
 
                 msm_camio_clk_disable(CAMIO_CSI0_VFE_CLK);
                 msm_camio_clk_disable(CAMIO_CSI0_CLK);
@@ -882,7 +884,7 @@ int msm_camio_csi_config_withReceiverDisabled(struct msm_camera_csi_params *csi_
 	int rc = 0;
 	uint32_t val = 0;
 
-	CDBG("msm_camio_csi_config \n");
+	CDBG("[CAM] msm_camio_csi_config \n");
 
 	/* SOT_ECC_EN enable error correction for SYNC (data-lane) */
 	msm_io_w(0x4, csibase + MIPI_PHY_CONTROL);
@@ -899,7 +901,7 @@ int msm_camio_csi_config_withReceiverDisabled(struct msm_camera_csi_params *csi_
 		MIPI_PROTOCOL_CONTROL_DATA_FORMAT_SHFT;
 	val |= csi_params->dpcm_scheme <<
 		MIPI_PROTOCOL_CONTROL_DPCM_SCHEME_SHFT;
-	CDBG("%s MIPI_PROTOCOL_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PROTOCOL_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PROTOCOL_CONTROL);
 
 	/* SW CAL EN */
@@ -908,7 +910,7 @@ int msm_camio_csi_config_withReceiverDisabled(struct msm_camera_csi_params *csi_
 		MIPI_CALIBRATION_CONTROL_SWCAL_STRENGTH_OVERRIDE_EN_SHFT) |
 		(0x1 << MIPI_CALIBRATION_CONTROL_CAL_SW_HW_MODE_SHFT) |
 		(0x1 << MIPI_CALIBRATION_CONTROL_MANUAL_OVERRIDE_EN_SHFT);
-	CDBG("%s MIPI_CALIBRATION_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_CALIBRATION_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_CALIBRATION_CONTROL);
 
 	/* settle_cnt is very sensitive to speed!
@@ -922,7 +924,7 @@ int msm_camio_csi_config_withReceiverDisabled(struct msm_camera_csi_params *csi_
 		(0x0F << MIPI_PHY_D0_CONTROL2_HS_TERM_IMP_SHFT) |
 #endif
 		(0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
-	CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_D0_CONTROL2);
 	msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL2);
 	msm_io_w(val, csibase + MIPI_PHY_D2_CONTROL2);
@@ -931,7 +933,7 @@ int msm_camio_csi_config_withReceiverDisabled(struct msm_camera_csi_params *csi_
 
 	val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
 		(0x1 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
-	CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
 
 	//0306 QCT Hody: for mipi CRC error
@@ -941,7 +943,7 @@ int msm_camio_csi_config_withReceiverDisabled(struct msm_camera_csi_params *csi_
 
 	val = (0x1 << MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT) |
 		(0x1 << MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT);
-	CDBG("%s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL);
 
 	msm_io_w(0x00000000, csibase + MIPI_PHY_D2_CONTROL);
@@ -982,7 +984,7 @@ int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
 	int rc = 0;
 	uint32_t val = 0;
 
-	CDBG("msm_camio_csi_config \n");
+	CDBG("[CAM] msm_camio_csi_config \n");
 
 	/* SOT_ECC_EN enable error correction for SYNC (data-lane) */
 	msm_io_w(0x4, csibase + MIPI_PHY_CONTROL);
@@ -999,7 +1001,7 @@ int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
 		MIPI_PROTOCOL_CONTROL_DATA_FORMAT_SHFT;
 	val |= csi_params->dpcm_scheme <<
 		MIPI_PROTOCOL_CONTROL_DPCM_SCHEME_SHFT;
-	CDBG("%s MIPI_PROTOCOL_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PROTOCOL_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PROTOCOL_CONTROL);
 
 	/* SW CAL EN */
@@ -1008,7 +1010,7 @@ int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
 		MIPI_CALIBRATION_CONTROL_SWCAL_STRENGTH_OVERRIDE_EN_SHFT) |
 		(0x1 << MIPI_CALIBRATION_CONTROL_CAL_SW_HW_MODE_SHFT) |
 		(0x1 << MIPI_CALIBRATION_CONTROL_MANUAL_OVERRIDE_EN_SHFT);
-	CDBG("%s MIPI_CALIBRATION_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_CALIBRATION_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_CALIBRATION_CONTROL);
 
 	/* settle_cnt is very sensitive to speed!
@@ -1023,7 +1025,7 @@ int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
 #endif
 		(0x1 << MIPI_PHY_D0_CONTROL2_LP_REC_EN_SHFT) |
 		(0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
-	CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_D0_CONTROL2);
 	msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL2);
 	msm_io_w(val, csibase + MIPI_PHY_D2_CONTROL2);
@@ -1032,7 +1034,7 @@ int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
 
 	val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
 		(0x1 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
-	CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
 
 	//0306 QCT Hody: for mipi CRC error
@@ -1042,7 +1044,7 @@ int msm_camio_csi_config(struct msm_camera_csi_params *csi_params)
 
 	val = (0x1 << MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT) |
 		(0x1 << MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT);
-	CDBG("%s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
+	CDBG("[CAM] %s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
 	msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL);
 
 	msm_io_w(0x00000000, csibase + MIPI_PHY_D2_CONTROL);
@@ -1086,47 +1088,47 @@ void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 		bus_perf_client =
 			msm_bus_scale_register_client(&cam_bus_client_pdata);
 		if (!bus_perf_client) {
-			pr_err("%s: Registration Failed!!!\n", __func__);
+			pr_err("[CAM] %s: Registration Failed!!!\n", __func__);
 			bus_perf_client = 0;
 			return;
 		}
-		pr_info("%s: S_INIT rc = %u\n", __func__, bus_perf_client);
+		pr_info("[CAM] %s: S_INIT rc = %u\n", __func__, bus_perf_client);
 		break;
 	case S_EXIT:
 		if (bus_perf_client) {
-			pr_info("%s: S_EXIT\n", __func__);
+			pr_info("[CAM] %s: S_EXIT\n", __func__);
 			msm_bus_scale_unregister_client(bus_perf_client);
 		} else
-			pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
+			pr_err("[CAM] %s: Bus Client NOT Registered!!!\n", __func__);
 		break;
 	case S_PREVIEW:
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 1);
-			pr_info("%s: S_PREVIEW rc = %d\n", __func__, rc);
+			pr_info("[CAM] %s: S_PREVIEW rc = %d\n", __func__, rc);
 		} else
-			pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
+			pr_err("[CAM] %s: Bus Client NOT Registered!!!\n", __func__);
 		break;
 	case S_VIDEO:
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 2);
-			pr_info("%s: S_VIDEO rc = %d\n", __func__, rc);
+			pr_info("[CAM] %s: S_VIDEO rc = %d\n", __func__, rc);
 		} else
-			pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
+			pr_err("[CAM] %s: Bus Client NOT Registered!!!\n", __func__);
 		break;
 	case S_CAPTURE:
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 3);
-			pr_info("%s: S_CAPTURE rc = %d\n", __func__, rc);
+			pr_info("[CAM] %s: S_CAPTURE rc = %d\n", __func__, rc);
 		} else
-			pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
+			pr_err("[CAM] %s: Bus Client NOT Registered!!!\n", __func__);
 		break;
 	case S_DEFAULT:
 		break;
 	default:
-		pr_info("%s: INVALID CASE\n", __func__);
+		pr_info("[CAM] %s: INVALID CASE\n", __func__);
 	}
 }
 
@@ -1142,7 +1144,7 @@ void msm_camio_csi_misr_debug_on(void)
 
 void msm_camio_csi_misr_read(void)
 {
-	pr_info("%s: %d\n", __func__, msm_io_r(csibase + 0x60));
+	pr_info("[CAM] %s: %d\n", __func__, msm_io_r(csibase + 0x60));
 }
 
 
@@ -1179,7 +1181,7 @@ int msm_camio_csi_disable_lp_rec(void)
 {
     int rc = 0;
     uint32_t val = 0;
-    pr_info("msm_camio_csi_disable_lp_rec");
+    pr_info("[CAM] msm_camio_csi_disable_lp_rec");
     val = (0x14 <<
         MIPI_PHY_D0_CONTROL2_SETTLE_COUNT_SHFT) |
 
@@ -1190,7 +1192,7 @@ int msm_camio_csi_disable_lp_rec(void)
 #endif
         (0x0 << MIPI_PHY_D0_CONTROL2_LP_REC_EN_SHFT) |
         (0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
-    CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+    CDBG("[CAM] %s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
     msm_io_w(val, csibase + MIPI_PHY_D0_CONTROL2);
     msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL2);
     msm_io_w(val, csibase + MIPI_PHY_D2_CONTROL2);
@@ -1198,7 +1200,7 @@ int msm_camio_csi_disable_lp_rec(void)
 
     val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
         (0x1 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
-    CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+    CDBG("[CAM] %s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
     msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
     return rc;
 }
@@ -1208,7 +1210,7 @@ int msm_camio_csi_enable_lp_rec(void)
 {
     int rc = 0;
     uint32_t val = 0;
-    pr_info("msm_camio_csi_enable_lp_rec");
+    pr_info("[CAM] msm_camio_csi_enable_lp_rec");
     val = (0x14 <<
         MIPI_PHY_D0_CONTROL2_SETTLE_COUNT_SHFT) |
 
@@ -1219,7 +1221,7 @@ int msm_camio_csi_enable_lp_rec(void)
 #endif
         (0x1 << MIPI_PHY_D0_CONTROL2_LP_REC_EN_SHFT) |
         (0x1 << MIPI_PHY_D0_CONTROL2_ERR_SOT_HS_EN_SHFT);
-    CDBG("%s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
+    CDBG("[CAM] %s MIPI_PHY_D0_CONTROL2 val=0x%x\n", __func__, val);
     msm_io_w(val, csibase + MIPI_PHY_D0_CONTROL2);
     msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL2);
     msm_io_w(val, csibase + MIPI_PHY_D2_CONTROL2);
@@ -1227,7 +1229,7 @@ int msm_camio_csi_enable_lp_rec(void)
 
     val = (0x0F << MIPI_PHY_CL_CONTROL_HS_TERM_IMP_SHFT) |
         (0x1 << MIPI_PHY_CL_CONTROL_LP_REC_EN_SHFT);
-    CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
+    CDBG("[CAM] %s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
     msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
     return rc;
 }

@@ -590,23 +590,6 @@ EXPORT_SYMBOL(memcpy);
  */
 void *memmove(void *dest, const void *src, size_t count)
 {
-<<<<<<< HEAD
-	char *tmp;
-	const char *s;
-
-	if (dest <= src) {
-		tmp = dest;
-		s = src;
-		while (count--)
-			*tmp++ = *s++;
-	} else {
-		tmp = dest;
-		tmp += count;
-		s = src;
-		s += count;
-		while (count--)
-			*--tmp = *--s;
-=======
 	unsigned long dstp = (unsigned long)dest;
 	unsigned long srcp = (unsigned long)src;
 
@@ -616,7 +599,6 @@ void *memmove(void *dest, const void *src, size_t count)
 	} else {
 		/* Copy from the end to the beginning */
 		mem_copy_bwd(dstp, srcp, count);
->>>>>>> master
 	}
 	return dest;
 }

@@ -87,4 +87,4 @@ else
 endif
 
 obj-$(CONFIG_USB_HUB)	+= smsc251x.o
-
+>>>>>>> master

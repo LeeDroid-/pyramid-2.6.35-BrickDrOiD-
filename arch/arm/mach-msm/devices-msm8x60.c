@@ -666,6 +666,10 @@ struct platform_device msm_device_rng = {
 struct kgsl_platform_data kgsl_pdata = {
 	.pwrlevel_2d = {
 		{
+			.gpu_freq = 266667000,
+			.bus_freq = 1,
+		},
+		{
 			.gpu_freq = 228571000,
 			.bus_freq = 1,
 		},
@@ -673,12 +677,28 @@ struct kgsl_platform_data kgsl_pdata = {
 			.gpu_freq = 200000000,
 			.bus_freq = 0,
 		},
+		{
+			.gpu_freq = 160000000,
+			.bus_freq = 0,
+		},
+		{
+			.gpu_freq = 96000000,
+			.bus_freq = 0,
+		},
+		{
+			.gpu_freq = 27000000,
+			.bus_freq = 0,
+		},
 	},
 	.init_level_2d = 0,
-	.num_levels_2d = 2,
+	.num_levels_2d = 6,
 	.pwrlevel_3d = {
 		{
  			.gpu_freq = 300000000,
+ 			.bus_freq = 3,
+ 		},
+		{
+ 			.gpu_freq = 266667000,
  			.bus_freq = 3,
  		},
 		{
@@ -690,13 +710,25 @@ struct kgsl_platform_data kgsl_pdata = {
 			.bus_freq = 1,
 		},
 		{
+ 			.gpu_freq = 177778000,
+ 			.bus_freq = 1,
+ 		},
+		{
+ 			.gpu_freq = 160000000,
+ 			.bus_freq = 1,
+ 		},
+		{
+ 			.gpu_freq = 128000000,
+ 			.bus_freq = 1,
+ 		},
+		{
 			.gpu_freq = 27000000,
 			.bus_freq = 0,
 		},
 	},
 
 	.init_level_3d = 0,
-	.num_levels_3d = 5,
+	.num_levels_3d = 8,
 	.set_grp2d_async = NULL,
 	.set_grp3d_async = NULL,
 	.imem_clk_name = "imem_axi_clk",
@@ -724,7 +756,7 @@ struct kgsl_platform_data kgsl_pdata = {
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 	.pt_va_size = SZ_128M,
 	/* Maximum of 32 concurrent processes */
-	.pt_max_count = 30,
+	.pt_max_count = 32,
 #else
 	.pt_va_size = SZ_128M,
 	/* We only ever have one pagetable for everybody */

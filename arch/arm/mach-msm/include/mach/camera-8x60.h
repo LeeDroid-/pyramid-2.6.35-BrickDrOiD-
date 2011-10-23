@@ -152,24 +152,10 @@ struct msm_vpe_buf_info {
 	struct	 video_crop_t vpe_crop;
 };
 
-struct msm_vfe_stats_msg {
-	uint8_t awb_ymin;
-	uint32_t aec_buff;
-	uint32_t awb_buff;
-	uint32_t af_buff;
-	uint32_t ihist_buff;
-	uint32_t rs_buff;
-	uint32_t cs_buff;
-	uint32_t skin_buff;
-	uint32_t status_bits;
-	uint32_t frame_id;
-};
-
 struct msm_vfe_resp {
 	enum vfe_resp_msg type;
 	struct msm_vfe_evt_msg evt_msg;
 	struct msm_vfe_phy_info phy;
-	struct msm_vfe_stats_msg stats_msg;
 	struct msm_vpe_buf_info vpe_bf;
 	void    *extdata;
 	int32_t extlen;
@@ -254,7 +240,6 @@ struct msm_queue_cmd {
 struct msm_device_queue {
 	struct list_head list;
 	spinlock_t lock;
-	spinlock_t wait_lock;
 	wait_queue_head_t wait;
 	int max;
 	int len;
@@ -281,11 +266,10 @@ struct msm_sync {
 	 */
 	struct msm_device_queue frame_q;
 	int unblock_poll_frame;
+#ifdef CONFIG_CAMERA_ZSL
 	int unblock_poll_pic_frame;
-	atomic_t send_output_s;
-
-	atomic_t num_drop_output_s; // num of snapshot frames to drop
-	atomic_t has_dropped_output_s; // whether the latest snapshot frame was dropped or not.
+	uint8_t send_output_s;
+#endif
 
 	/* This queue contains snapshot frames.  It is accessed by the DSP (in
 	 * interrupt context, and by the control thread.
@@ -303,7 +287,6 @@ struct msm_sync {
 	struct platform_device *pdev;
 	int16_t ignore_qcmd_type;
 	uint8_t ignore_qcmd;
-	int16_t qcmd_done;
 	uint8_t opencnt;
 	void *cropinfo;
 	int  croplen;
@@ -419,9 +402,10 @@ struct msm_v4l2_driver {
 	int (*get_frame) (struct msm_sync *, struct msm_frame *);
 	int (*put_frame) (struct msm_sync *, struct msm_frame *);
 #ifdef CONFIG_CAMERA_ZSL
-	int (*get_pict_zsl) (struct msm_sync *, struct msm_frame *);
-#endif
+	int (*get_pict) (struct msm_sync *, struct msm_frame *);
+#else
 	int (*get_pict) (struct msm_sync *, struct msm_ctrl_cmd *);
+#endif
 	unsigned int (*drv_poll) (struct msm_sync *, struct file *,
 				struct poll_table_struct *);
 };

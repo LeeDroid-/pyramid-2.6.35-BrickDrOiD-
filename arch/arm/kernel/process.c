@@ -85,16 +85,9 @@ __setup("hlt", hlt_setup);
 
 void arm_machine_restart(char mode, const char *cmd)
 {
-<<<<<<< HEAD
-	/*
-	 * Clean and disable cache, and turn off interrupts
-	 */
-	cpu_proc_fin();
-=======
 	/* Disable interrupts first */
 	local_irq_disable();
 	local_fiq_disable();
->>>>>>> master
 
 	/*
 	 * Tell the mm system that we are going to reboot -
@@ -103,8 +96,6 @@ void arm_machine_restart(char mode, const char *cmd)
 	 */
 	setup_mm_for_reboot(mode);
 
-<<<<<<< HEAD
-=======
 	/* Clean and invalidate caches */
 	flush_cache_all();
 
@@ -114,7 +105,6 @@ void arm_machine_restart(char mode, const char *cmd)
 	/* Push out any further dirty data, and ensure cache is empty */
 	flush_cache_all();
 
->>>>>>> master
 	/*
 	 * Now call the architecture specific reboot code.
 	 */

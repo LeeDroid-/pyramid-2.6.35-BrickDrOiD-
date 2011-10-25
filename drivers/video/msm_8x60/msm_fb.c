@@ -250,18 +250,7 @@ static ssize_t msm_fb_msm_fb_type(struct device *dev,
 
 	return ret;
 }
-static ssize_t show_fbdebug(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	ssize_t len = 0;
-	struct msm_fb_data_type *mfd = mfd_list[0];
-	pr_info("%s(%d) mdp hung dma %d dma_pid %d line %d dmap %d dmap_pid %d line %d\n, ", __func__, __LINE__,
-		mfd->dma->busy ?1:0, (mfd->dma->busy_pid & 0xFFFF0000) >> 16, (mfd->dma->busy_pid & 0xFFFF),
-		mfd->dma->dmap_busy ?1:0, (mfd->dma->dmap_pid & 0xFFFF0000) >> 16, (mfd->dma->dmap_pid & 0xFFFF));
-	return len;
-}
 
-static DEVICE_ATTR(fbdebug, 0644, show_fbdebug, NULL);
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, msm_fb_msm_fb_type, NULL);
 static struct attribute *msm_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
@@ -342,13 +331,12 @@ static int msm_fb_probe(struct platform_device *pdev)
 
 	mfd->panel_info.frame_count = 0;
 	mfd->bl_level = 0;
+	mfd->width = msm_fb_pdata->width;
+	mfd->height = msm_fb_pdata->height;
 #ifdef CONFIG_FB_MSM_OVERLAY
 	mfd->overlay_play_enable = 1;
 
 	/* TODO: find a better way to pass blt_base to overlay */
-	err = device_create_file(&pdev->dev, &dev_attr_fbdebug);
-	if (err != 0)
-		printk(KERN_WARNING "attr_fbdebug failed\n");
 	mfd->blt_base = ov_blt_base;
 	mfd->blt_size = ov_blt_size;
 	if(msm_fb_pdata && mfd->panel_info.type == MIPI_CMD_PANEL) {
@@ -752,6 +740,8 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on) {
+			if( !pdata->bklctrl || !pdata->bklswitch)
+				hr_msleep(16);
 			ret = pdata->on(mfd->pdev);
 			if (ret == 0) {
 				mfd->panel_power_on = TRUE;
@@ -995,8 +985,8 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	var->grayscale = 0,	/* No graylevels */
 	var->nonstd = 0,	/* standard pixel format */
 	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
-	var->height = -1,	/* height of picture in mm */
-	var->width = -1,	/* width of picture in mm */
+	var->height = mfd->height,	/* height of picture in mm */
+	var->width = mfd->width,	/* width of picture in mm */
 	var->accel_flags = 0,	/* acceleration flags */
 	var->sync = 0,	/* see FB_SYNC_* */
 	var->rotate = 0,	/* angle we rotate counter clockwise */

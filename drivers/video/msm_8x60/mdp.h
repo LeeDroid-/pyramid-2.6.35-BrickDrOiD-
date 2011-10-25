@@ -224,8 +224,6 @@ struct mdp_dma_data {
 	struct semaphore mutex;
 	struct completion comp;
 	struct completion dmap_comp;
-	uint32_t	busy_pid;
-	uint32_t	dmap_pid;
 };
 
 struct mdp_reg {

@@ -579,12 +579,10 @@ void kgsl_idle_check(struct work_struct *work)
 							idle_check_ws);
 
 	mutex_lock(&device->mutex);
-	if ((device->pwrctrl.idle_pass) &&
-		(device->requested_state != KGSL_STATE_SLEEP))
-		kgsl_pwrctrl_idle_calc(device);
-
-	if (device->state & (KGSL_STATE_ACTIVE | KGSL_STATE_NAP) &&
-		device->pwrctrl.nap_allowed) {
+	if (device->state & (KGSL_STATE_ACTIVE | KGSL_STATE_NAP) {
+		if ((device->pwrctrl.idle_pass) &&
+			(device->requested_state != KGSL_STATE_SLEEP))
+			kgsl_pwrctrl_idle_calc(device);
 		if (kgsl_pwrctrl_sleep(device) != 0)
 			mod_timer(&device->idle_timer,
 				jiffies +

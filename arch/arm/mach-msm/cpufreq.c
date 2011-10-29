@@ -227,7 +227,7 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 	INIT_WORK(&cpu_work->work, set_cpu_work);
 #endif
 /* set safe default min and max speeds */
-	policy->max = 1188000;
+	policy->max = 1536000;
 	policy->min = 192000;
 	return 0;
 }

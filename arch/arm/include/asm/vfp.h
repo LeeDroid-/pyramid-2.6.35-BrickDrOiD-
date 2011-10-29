@@ -87,4 +87,3 @@
 int vfp_flush_context(void);
 void vfp_reinit(void);
 #endif
-

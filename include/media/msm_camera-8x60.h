@@ -160,16 +160,10 @@
 
 #define MSM_CAM_IOCTL_SEND_OUTPUT_S \
 	_IOW(MSM_CAM_IOCTL_MAGIC, 40, uint8_t *)
-
-#define MSM_CAM_IOCTL_DROP_OUTPUT_S \
-       _IOW(MSM_CAM_IOCTL_MAGIC, 42, uint8_t *)
 #endif
 
-#define MSM_CAM_IOCTL_SET_CONFIG_CAMERA_ZSL \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 41, bool *)
 #define MSM_CAM_IOCTL_EFFECT_STATE_CFG \
-	_IOW(MSM_CAM_IOCTL_MAGIC, 43, int32_t *)
-
+	_IOW(MSM_CAM_IOCTL_MAGIC, 41, int32_t *)
 
 #define MSM_CAMERA_LED_OFF  0
 #define MSM_CAMERA_LED_LOW  1
@@ -221,7 +215,7 @@ struct msm_isp_evt_msg {
 	unsigned short msg_id;
 	unsigned int len;	/* size in, number of bytes out */
 	/* maximum possible data size that can be
-	  sent to user space as v4l2 data structure
+i	  sent to user space as v4l2 data structure
 	  is only of 64 bytes */
 	uint8_t data[48];
 };

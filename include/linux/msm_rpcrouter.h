@@ -1,6 +1,6 @@
 /* include/linux/msm_rpcrouter.h
  *
- * Copyright (c) QUALCOMM Incorporated
+ * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
  * Copyright (C) 2007 Google, Inc.
  * Author: San Mehat <san@android.com>
  *
@@ -14,13 +14,6 @@
  * GNU General Public License for more details.
  *
  */
-
-#if defined(CONFIG_ARCH_MSM7X30_LTE)
-#include <linux/7x30-lte/msm_rpcrouter.h>
-#elif defined(CONFIG_ARCH_MSM8X60)
-#include <linux/msm_rpcrouter-8x60.h>
-#endif
-
 #ifndef __LINUX_MSM_RPCROUTER_H
 #define __LINUX_MSM_RPCROUTER_H
 
@@ -48,7 +41,10 @@ struct rpcrouter_ioctl_server_args {
 #define RPC_ROUTER_IOCTL_UNREGISTER_SERVER \
 	_IOWR(RPC_ROUTER_IOCTL_MAGIC, 3, unsigned int)
 
-#define RPC_ROUTER_IOCTL_GET_MINOR_VERSION \
-	_IOW(RPC_ROUTER_IOCTL_MAGIC, 4, unsigned int)
+#define RPC_ROUTER_IOCTL_CLEAR_NETRESET \
+	_IOWR(RPC_ROUTER_IOCTL_MAGIC, 4, unsigned int)
+
+#define RPC_ROUTER_IOCTL_GET_CURR_PKT_SIZE \
+	_IOR(RPC_ROUTER_IOCTL_MAGIC, 5, unsigned int)
 
 #endif

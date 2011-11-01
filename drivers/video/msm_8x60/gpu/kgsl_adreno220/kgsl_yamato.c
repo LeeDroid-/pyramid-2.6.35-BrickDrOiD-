@@ -79,9 +79,6 @@
 	 | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)	\
 	 | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT))
 
-/* max msecs to wait for gpu to finish its operation(s) */
-#define MAX_WAITGPU_SECS (HZ + HZ/2)
-
 static struct kgsl_yamato_device yamato_device = {
 	.dev = {
 		.name = "kgsl-3d0",
@@ -117,7 +114,6 @@ static struct kgsl_yamato_device yamato_device = {
 
 /* max msecs to wait for gpu to finish its operation(s) */
 #define MAX_WAITGPU_SECS (HZ + HZ/2)
-
 
 static int kgsl_yamato_start(struct kgsl_device *device,
 						unsigned int init_ram);
@@ -861,7 +857,7 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 
 	if (device->chip_id != KGSL_CHIPID_LEIA_REV470){
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
-		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0);
+		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
 	}
 	else{
 		/* This was rewrote for better performance

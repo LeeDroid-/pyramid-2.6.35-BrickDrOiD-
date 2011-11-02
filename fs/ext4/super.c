@@ -1790,7 +1790,7 @@ static int ext4_setup_super(struct super_block *sb, struct ext4_super_block *es,
 			EXT4_INODES_PER_GROUP(sb),
 			sbi->s_mount_opt);
 
-    sb->cleancache_poolid = cleancache_init_fs(PAGE_SIZE);
+	cleancache_init_fs(sb);
 	return res;
 }
 

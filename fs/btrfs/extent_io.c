@@ -2028,12 +2028,12 @@ static int __extent_read_full_page(struct extent_io_tree *tree,
 
 	set_page_extent_mapped(page);
 
-    if (!PageUptodate(page)) {
-        if (cleancache_get_page(page) == 0) {
-            BUG_ON(blocksize != PAGE_SIZE);
-            goto out;
-        }
-    }
+	if (!PageUptodate(page)) {
+		if (cleancache_get_page(page) == 0) {
+			BUG_ON(blocksize != PAGE_SIZE);
+			goto out;
+		}
+	}
 
 	end = page_end;
 	while (1) {

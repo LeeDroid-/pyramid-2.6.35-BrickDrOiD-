@@ -47,7 +47,6 @@
 #include <linux/slab.h>
 #include <linux/u64_stats_sync.h>
 
-#include "xvmalloc.h"
 #include "zcache_drv.h"
 
 static DEFINE_PER_CPU(unsigned char *, compress_buffer);
@@ -534,6 +533,7 @@ void zcache_free_page(struct zcache_pool *zpool, void *ptr)
 	zcache_dec_pages(zpool, is_zero);
 }
 
+
 /*
  * Allocate memory for storing the given page and insert
  * it in the given node's page tree at location 'index'.
@@ -622,6 +622,7 @@ out_store:
 		radix_tree_tag_set(&znode->page_tree, index,
 				ZCACHE_TAG_NONZERO_PAGE);
 	}
+
 	spin_unlock_irqrestore(&znode->tree_lock, flags);
 
 	ret = 0; /* success */
@@ -886,6 +887,7 @@ static struct attribute_group zcache_pool_attr_group = {
 };
 #endif	/* CONFIG_SYSFS */
 
+
 /*
  * cleancache_ops.init_fs
  *
@@ -983,12 +985,13 @@ static int zcache_init_shared_fs(char *uuid, size_t pagesize)
  *
  * Returns 0 on success, negative error code on failure.
  */
-static int zcache_get_page(int pool_id, ino_t inode_no,
+static int zcache_get_page(int pool_id, struct cleancache_filekey filekey,
 			pgoff_t index, struct page *page)
 {
 	int ret;
 	void *nodeptr;
 	size_t clen;
+	ino_t inode_no = filekey.u.ino;
 	unsigned long flags;
 
 	u32 offset;
@@ -1062,10 +1065,11 @@ out:
  * If allocation is successful, inserts it at zcache location
  * <pool_id, inode_no, index>.
  */
-static void zcache_put_page(int pool_id, ino_t inode_no,
+static void zcache_put_page(int pool_id, struct cleancache_filekey filekey,
 			pgoff_t index, struct page *page)
 {
 	int ret, is_zero;
+	ino_t inode_no = filekey.u.ino;
 	unsigned long flags;
 	struct page *zpage;
 	struct zcache_inode_rb *znode;
@@ -1126,6 +1130,7 @@ out_find_store:
 	if (unlikely(ret)) {
 		zcache_add_stat(zpool, ZPOOL_STAT_COMPR_SIZE,
 				-zcache_max_page_size);
+
 		/*
 		 * Its possible that racing zcache get/flush could not
 		 * isolate this node since we held a reference to it.
@@ -1144,9 +1149,11 @@ out_find_store:
  *
  * Locates and fees page at zcache location <pool_id, inode_no, index>
  */
-static void zcache_flush_page(int pool_id, ino_t inode_no, pgoff_t index)
+static void zcache_flush_page(int pool_id, struct cleancache_filekey filekey,
+			pgoff_t index)
 {
 	unsigned long flags;
+	ino_t inode_no = filekey.u.ino;
 	struct page *page;
 	struct zcache_inode_rb *znode;
 	struct zcache_pool *zpool = zcache->pools[pool_id];
@@ -1162,7 +1169,6 @@ static void zcache_flush_page(int pool_id, ino_t inode_no, pgoff_t index)
 	spin_unlock_irqrestore(&znode->tree_lock, flags);
 
 	kref_put(&znode->refcount, zcache_inode_release);
-
 	zcache_free_page(zpool, page);
 }
 
@@ -1171,9 +1177,10 @@ static void zcache_flush_page(int pool_id, ino_t inode_no, pgoff_t index)
  *
  * Free all pages associated with the given inode.
  */
-static void zcache_flush_inode(int pool_id, ino_t inode_no)
+static void zcache_flush_inode(int pool_id, struct cleancache_filekey filekey)
 {
 	unsigned long flags;
+	ino_t inode_no = filekey.u.ino;
 	struct zcache_pool *zpool;
 	struct zcache_inode_rb *znode;
 
@@ -1262,6 +1269,7 @@ static struct notifier_block zcache_cpu_nb = {
 	.notifier_call = zcache_cpu_notify
 };
 
+
 static int __init zcache_init(void)
 {
 	int ret = -ENOMEM;
@@ -1298,7 +1306,7 @@ static int __init zcache_init(void)
 #endif
 
 	spin_lock_init(&zcache->pool_lock);
-	cleancache_ops = ops;
+	cleancache_register_ops(&ops);
 
 	ret = 0; /* success */
 

@@ -1363,7 +1363,7 @@ static int ext3_setup_super(struct super_block *sb, struct ext3_super_block *es,
 	} else {
 		ext3_msg(sb, KERN_INFO, "using internal journal");
 	}
-    sb->cleancache_poolid = cleancache_init_fs(PAGE_SIZE);
+	cleancache_init_fs(sb);
 	return res;
 }
 

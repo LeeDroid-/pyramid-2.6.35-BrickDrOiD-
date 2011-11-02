@@ -2286,9 +2286,8 @@ static int ocfs2_initialize_super(struct super_block *sb,
 		mlog_errno(status);
 		goto bail;
 	}
+	cleancache_init_shared_fs((char *)&uuid_net_key, sb);
 
-	sb->cleancache_poolid =
-		cleancache_init_shared_fs((char *)&uuid_net_key, PAGE_SIZE);
 bail:
 	mlog_exit(status);
 	return status;

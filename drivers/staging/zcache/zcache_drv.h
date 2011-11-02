@@ -18,6 +18,8 @@
 #include <linux/seqlock.h>
 #include <linux/types.h>
 
+#include "../zram/xvmalloc.h"
+
 #define MAX_ZCACHE_POOLS	32	/* arbitrary */
 #define MAX_ZPOOL_NAME_LEN	8	/* "pool"+id (shown in sysfs) */
 
@@ -38,7 +40,7 @@ enum zcache_tag {
 /* Default zcache per-pool memlimit: 10% of total RAM */
 static const unsigned zcache_pool_default_memlimit_perc_ram = 10;
 
- /* We only keep pages that compress to less than this size */
+/* We only keep pages that compress to less than this size */
 static const int zcache_max_page_size = PAGE_SIZE / 2;
 
 /* Stored in the beginning of each compressed object */
@@ -85,6 +87,7 @@ struct zcache {
 #ifdef CONFIG_SYSFS
 	struct kobject *kobj;	/* sysfs */
 #endif
+
 };
 
 #endif

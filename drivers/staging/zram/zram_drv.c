@@ -251,7 +251,7 @@ static int zram_read(struct zram *zram, struct bio *bio)
 
 		/* Requested page is not present in compressed area */
 		if (unlikely(!zram->table[index].page)) {
-			pr_debug("[ZRAM]: Read before write: sector=%lu, size=%u",
+			pr_debug("Read before write: sector=%lu, size=%u",
 				(ulong)(bio->bi_sector), bio->bi_size);
 			/* Do nothing */
 			index++;
@@ -281,7 +281,7 @@ static int zram_read(struct zram *zram, struct bio *bio)
 
 		/* Should NEVER happen. Return bio error if it does. */
 		if (unlikely(ret != LZO_E_OK)) {
-			pr_err("[ZRAM]: Decompression failed! err=%d, page=%u\n",
+			pr_err("Decompression failed! err=%d, page=%u\n",
 				ret, index);
 			zram_stat64_inc(zram, &zram->stats.failed_reads);
 			goto out;
@@ -541,14 +541,14 @@ int zram_init_device(struct zram *zram)
 
 	zram->compress_workmem = kzalloc(LZO1X_MEM_COMPRESS, GFP_KERNEL);
 	if (!zram->compress_workmem) {
-		pr_err("[ZRAM]: Error allocating compressor working memory!\n");
+		pr_err("Error allocating compressor working memory!\n");
 		ret = -ENOMEM;
 		goto fail;
 	}
 
 	zram->compress_buffer = (void *)__get_free_pages(__GFP_ZERO, 1);
 	if (!zram->compress_buffer) {
-		pr_err("[ZRAM]: Error allocating compressor buffer space\n");
+		pr_err("Error allocating compressor buffer space\n");
 		ret = -ENOMEM;
 		goto fail;
 	}
@@ -556,7 +556,7 @@ int zram_init_device(struct zram *zram)
 	num_pages = zram->disksize >> PAGE_SHIFT;
 	zram->table = vmalloc(num_pages * sizeof(*zram->table));
 	if (!zram->table) {
-		pr_err("[ZRAM]: Error allocating zram address table\n");
+		pr_err("Error allocating zram address table\n");
 		/* To prevent accessing table entries during cleanup */
 		zram->disksize = 0;
 		ret = -ENOMEM;
@@ -571,7 +571,7 @@ int zram_init_device(struct zram *zram)
 
 	zram->mem_pool = xv_create_pool();
 	if (!zram->mem_pool) {
-		pr_err("[ZRAM]: Error creating memory pool\n");
+		pr_err("Error creating memory pool\n");
 		ret = -ENOMEM;
 		goto fail;
 	}
@@ -579,14 +579,14 @@ int zram_init_device(struct zram *zram)
 	zram->init_done = 1;
 	mutex_unlock(&zram->init_lock);
 
-	pr_debug("[ZRAM]: Initialization done!\n");
+	pr_debug("Initialization done!\n");
 	return 0;
 
 fail:
 	mutex_unlock(&zram->init_lock);
 	zram_reset_device(zram);
 
-	pr_err("[ZRAM]: Initialization failed: err=%d\n", ret);
+	pr_err("Initialization failed: err=%d\n", ret);
 	return ret;
 }
 
@@ -618,7 +618,7 @@ static int create_device(struct zram *zram, int device_id)
 
 	zram->queue = blk_alloc_queue(GFP_KERNEL);
 	if (!zram->queue) {
-		pr_err("[ZRAM]: Error allocating disk queue for device %d\n",
+		pr_err("Error allocating disk queue for device %d\n",
 			device_id);
 		ret = -ENOMEM;
 		goto out;
@@ -631,7 +631,7 @@ static int create_device(struct zram *zram, int device_id)
 	zram->disk = alloc_disk(1);
 	if (!zram->disk) {
 		blk_cleanup_queue(zram->queue);
-		pr_warning("[ZRAM]: Error allocating disk structure for device %d\n",
+		pr_warning("Error allocating disk structure for device %d\n",
 			device_id);
 		ret = -ENOMEM;
 		goto out;
@@ -666,7 +666,7 @@ static int create_device(struct zram *zram, int device_id)
 	ret = sysfs_create_group(&disk_to_dev(zram->disk)->kobj,
 				&zram_disk_attr_group);
 	if (ret < 0) {
-		pr_warning("[ZRAM]: Error creating sysfs group");
+		pr_warning("Error creating sysfs group");
 		goto out;
 	}
 #endif
@@ -698,7 +698,7 @@ static int __init zram_init(void)
 	int ret, dev_id;
 
 	if (num_devices > max_num_devices) {
-		pr_warning("[ZRAM]: Invalid value for num_devices: %u\n",
+		pr_warning("Invalid value for num_devices: %u\n",
 				num_devices);
 		ret = -EINVAL;
 		goto out;
@@ -706,7 +706,7 @@ static int __init zram_init(void)
 
 	zram_major = register_blkdev(0, "zram");
 	if (zram_major <= 0) {
-		pr_warning("[ZRAM]: Unable to get major number\n");
+		pr_warning("Unable to get major number\n");
 		ret = -EBUSY;
 		goto out;
 	}
@@ -758,7 +758,7 @@ static void __exit zram_exit(void)
 	unregister_blkdev(zram_major, "zram");
 
 	kfree(zram_devices);
-	pr_debug("[ZRAM]: Cleanup done!\n");
+	pr_debug("Cleanup done!\n");
 }
 
 module_param(num_devices, uint, 0);

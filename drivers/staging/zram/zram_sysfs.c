@@ -14,9 +14,10 @@
 
 #include <linux/device.h>
 #include <linux/genhd.h>
-#include <linux/mm.h>
 
 #include "zram_drv.h"
+
+#ifdef CONFIG_SYSFS
 
 static u64 zram_stat64_read(struct zram *zram, u64 *v)
 {
@@ -230,3 +231,5 @@ static struct attribute *zram_disk_attrs[] = {
 struct attribute_group zram_disk_attr_group = {
 	.attrs = zram_disk_attrs,
 };
+
+#endif	/* CONFIG_SYSFS */

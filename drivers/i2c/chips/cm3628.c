@@ -799,7 +799,7 @@ static int psensor_enable(struct cm3628_info *lpi)
 static int psensor_set_disable(struct cm3628_info *lpi)
 {
 	int ret = -EIO;
-	uint8_t add;
+	uint8_t add = 0;
 
 	ret = _cm3628_I2C_Write_Byte(lpi->PS_slave_address,
 			PS_cmd_cmd, lpi->ps_conf1_val|CM3628_PS_SD);
@@ -1117,7 +1117,7 @@ static ssize_t ps_adc_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 
-	uint8_t value;
+	uint8_t value = 0;
 	int ret;
 	struct cm3628_info *lpi = lp_info;
 	int value1;

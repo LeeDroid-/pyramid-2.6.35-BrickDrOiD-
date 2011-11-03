@@ -1079,7 +1079,7 @@ static int s5k3h1gx_i2c_read_fuseid(struct sensor_cfg_data *cdata)
 {
 
 	int32_t  rc;
-	unsigned short i, R1, R2, R3;
+	unsigned short i, R1 = 0, R2 = 0, R3 = 0;
 	unsigned short  OTP[10] = {0};
 
 	pr_info("[CAM]%s: sensor OTP information:\n", __func__);

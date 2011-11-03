@@ -789,7 +789,7 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 	int status = -EINVAL;
 	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	int init_reftimestamp = 0x7fffffff;
-	unsigned int override1, override2, i;
+	unsigned int override1 = 0, override2 = 0, i = 0;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
@@ -865,7 +865,6 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 		 * try writing override1 & 2, cancel if successful
 		 * max three times.
 		 */
-		i = 0;
 		while((((override1 & 0x7BFFFFFA) != 0x7BFFFFFA) &&
 				((override2 & 0x000001F4) != 0x000001F4)) && i < 3){
 			kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x7BFFFFFA);

@@ -621,7 +621,7 @@ void kgsl_check_suspended(struct kgsl_device *device)
 		wait_for_completion(&device->hwaccess_gate);
 		mutex_lock(&device->mutex);
 	}
- }
+}
 
 
 /******************************************************************/
@@ -637,13 +637,11 @@ int kgsl_pwrctrl_sleep(struct kgsl_device *device)
 			goto nap;
 	} else if (device->requested_state == KGSL_STATE_SLEEP) {
 		if (device->state == KGSL_STATE_NAP ||
-			device->ftbl.device_isidle(device))
+                        device->ftbl.device_isidle(device))
 			goto sleep;
 	}
-
 	device->requested_state = KGSL_STATE_NONE;
 	return KGSL_FAILURE;
-
 sleep:
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);

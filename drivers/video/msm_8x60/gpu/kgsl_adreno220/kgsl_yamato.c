@@ -79,9 +79,6 @@
 	 | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)	\
 	 | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT))
 
-/* max msecs to wait for gpu to finish its operation(s) */
-#define MAX_WAITGPU_SECS (HZ + HZ/2)
-
 static struct kgsl_yamato_device yamato_device = {
 	.dev = {
 		.name = "kgsl-3d0",
@@ -117,7 +114,6 @@ static struct kgsl_yamato_device yamato_device = {
 
 /* max msecs to wait for gpu to finish its operation(s) */
 #define MAX_WAITGPU_SECS (HZ + HZ/2)
-
 
 static int kgsl_yamato_start(struct kgsl_device *device,
 						unsigned int init_ram);
@@ -793,6 +789,7 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 	int status = -EINVAL;
 	struct kgsl_yamato_device *yamato_device = KGSL_YAMATO_DEVICE(device);
 	int init_reftimestamp = 0x7fffffff;
+	unsigned int override1 = 0, override2 = 0, i = 0;
 
 	KGSL_DRV_VDBG("enter (device=%p)\n", device);
 
@@ -830,9 +827,9 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 		kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0x00000001);
 
 	/* The core is in an indeterminate state until the reset completes
-	 * after 30ms.
+	 * after 50ms.
 	 */
-	msleep(30);
+	hr_msleep(50);
 
 	kgsl_yamato_regwrite(device, REG_RBBM_SOFT_RESET, 0x00000000);
 
@@ -858,10 +855,30 @@ static int kgsl_yamato_start(struct kgsl_device *device, unsigned int init_ram)
 	kgsl_yamato_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	kgsl_yamato_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
-	if (device->chip_id != KGSL_CHIPID_LEIA_REV470) {
+	if (device->chip_id != KGSL_CHIPID_LEIA_REV470){
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
 		kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
 	}
+	else{
+		/* This was rewrote for better performance
+		 * by show-p1984 <showp1984@gmail.com>
+		 * try writing override1 & 2, cancel if successful
+		 * max three times.
+		 */
+		while((((override1 & 0x7BFFFFFA) != 0x7BFFFFFA) &&
+				((override2 & 0x000001F4) != 0x000001F4)) && i < 3){
+			kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x7BFFFFFA);
+			kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE1, &override1);
+			kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x000001F4);
+			kgsl_yamato_regread(device, REG_RBBM_PM_OVERRIDE2, &override2);
+			i++;
+			if (i==2) {
+				if (((override1 & 0x7BFFFFFA) != 0x7BFFFFFA) &&
+					((override2 & 0x000001F4) != 0x000001F4))
+				KGSL_DRV_ERR("OVERRIDE1 = 0x%x, OVERRIDE2 = 0x%x !!\n",	override1, override2);
+			}
+		}
+        }
 
 	kgsl_sharedmem_set(&device->memstore, 0, 0,
 			   device->memstore.size);

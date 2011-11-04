@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,9 @@ static int security_level = 0;
 
 module_param_named(simlock_code, simlock_code, charp, S_IRUGO | S_IWUSR | S_IWGRP);
 
+/* Cache line size for msm8x60 */
+#define CACHELINESIZE 32
+
 #define SCM_ENOMEM		-5
 #define SCM_EOPNOTSUPP		-4
 #define SCM_EINVAL_ADDR		-3
@@ -48,6 +51,7 @@ static DEFINE_MUTEX(scm_lock);
  * @buf_offset: start of command buffer
  * @resp_hdr_offset: start of response buffer
  * @id: command to be executed
+ * @buf: buffer returned from scm_get_command_buffer()
  *
  * An SCM command is layed out in memory as follows:
  *
@@ -70,6 +74,7 @@ struct scm_command {
 	u32	buf_offset;
 	u32	resp_hdr_offset;
 	u32	id;
+	u32	buf[0];
 };
 
 /**
@@ -99,8 +104,8 @@ struct oem_log_oper_req {
 
 /**
  * alloc_scm_command() - Allocate an SCM command
- * @cmd_size - size of the command buffer
- * @resp_size - size of the response buffer
+ * @cmd_size: size of the command buffer
+ * @resp_size: size of the response buffer
  *
  * Allocate an SCM command, including enough room for the command
  * and response headers as well as the command and response buffers.
@@ -113,29 +118,29 @@ static struct scm_command *alloc_scm_command(size_t cmd_size, size_t resp_size)
 	size_t len = sizeof(*cmd) + sizeof(struct scm_response) + cmd_size +
 		resp_size;
 
-	cmd = kzalloc(len, GFP_KERNEL);
+	cmd = kzalloc(PAGE_ALIGN(len), GFP_KERNEL);
 	if (cmd) {
 		cmd->len = len;
-		cmd->buf_offset = sizeof(*cmd);
+		cmd->buf_offset = offsetof(struct scm_command, buf);
 		cmd->resp_hdr_offset = cmd->buf_offset + cmd_size;
 	}
 	return cmd;
 }
 
 /**
- * kfree_scm_command() - Free an SCM command
- * @cmd - command to free
+ * free_scm_command() - Free an SCM command
+ * @cmd: command to free
  *
  * Free an SCM command.
  */
-static void kfree_scm_command(const struct scm_command *cmd)
+static inline void free_scm_command(struct scm_command *cmd)
 {
 	kfree(cmd);
 }
 
 /**
  * scm_command_to_response() - Get a pointer to a scm_response
- * @cmd - command
+ * @cmd: command
  *
  * Returns a pointer to a response for a command.
  */
@@ -147,18 +152,18 @@ static inline struct scm_response *scm_command_to_response(
 
 /**
  * scm_get_command_buffer() - Get a pointer to a command buffer
- * @cmd - command
+ * @cmd: command
  *
  * Returns a pointer to the command buffer of a command.
  */
 static inline void *scm_get_command_buffer(const struct scm_command *cmd)
 {
-	return (void *)cmd + cmd->buf_offset;
+	return (void *)cmd->buf;
 }
 
 /**
  * scm_get_response_buffer() - Get a pointer to a response buffer
- * @rsp - response
+ * @rsp: response
  *
  * Returns a pointer to a response buffer of a response.
  */
@@ -195,6 +200,7 @@ static u32 smc(u32 cmd_addr)
 			__asmeq("%1", "r0")
 			__asmeq("%2", "r1")
 			__asmeq("%3", "r2")
+			".arch_extension sec\n"
 			"smc	#0	@ switch to secure world\n"
 			: "=r" (r0)
 			: "r" (r0), "r" (r1), "r" (r2)
@@ -239,12 +245,12 @@ static void scm_inv_range(unsigned long start, unsigned long end)
 
 /**
  * scm_call() - Send an SCM command
- * @svc_id - service identifier
- * @cmd_id - command identifier
- * @cmd_buf - command buffer
- * @cmd_len - length of the command buffer
- * @resp_buf - response buffer
- * @resp_len - length of the response buffer
+ * @svc_id: service identifier
+ * @cmd_id: command identifier
+ * @cmd_buf: command buffer
+ * @cmd_len: length of the command buffer
+ * @resp_buf: response buffer
+ * @resp_len: length of the response buffer
  *
  * Sends a command to the SCM and waits for the command to finish processing.
  */
@@ -283,7 +289,7 @@ int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 	if (resp_buf)
 		memcpy(resp_buf, scm_get_response_buffer(rsp), resp_len);
 out:
-	kfree_scm_command(cmd);
+	free_scm_command(cmd);
 	return ret;
 }
 EXPORT_SYMBOL(scm_call);
@@ -316,6 +322,7 @@ u32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 		__asmeq("%1", "r0")
 		__asmeq("%2", "r1")
 		__asmeq("%3", "r2")
+		".arch_extension sec\n"
 		"smc	#0	@ switch to secure world\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2)
@@ -348,6 +355,7 @@ u32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
 		__asmeq("%2", "r1")
 		__asmeq("%3", "r2")
 		__asmeq("%4", "r3")
+		".arch_extension sec\n"
 		"smc	#0	@ switch to secure world\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2), "r" (r3));
@@ -372,6 +380,7 @@ u32 scm_get_version(void)
 			__asmeq("%1", "r1")
 			__asmeq("%2", "r0")
 			__asmeq("%3", "r1")
+			".arch_extension sec\n"
 			"smc	#0	@ switch to secure world\n"
 			: "=r" (r0), "=r" (r1)
 			: "r" (r0), "r" (r1)

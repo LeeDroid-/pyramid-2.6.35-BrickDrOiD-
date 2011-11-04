@@ -80,7 +80,7 @@
  * Limiting Performance Impact
  * ---------------------------
  * C states, especially those with large exit latencies, can have a real
- * noticable impact on workloads, which is not acceptable for most sysadmins,
+ * noticeable impact on workloads, which is not acceptable for most sysadmins,
  * and in addition, less performance has a power price of its own.
  *
  * As a general rule of thumb, menu assumes that the following heuristic
@@ -299,7 +299,7 @@ static int menu_select(struct cpuidle_device *dev)
 
 		if (s->power_usage < power_usage) {
 			power_usage = s->power_usage;
-		data->last_state_idx = i;
+			data->last_state_idx = i;
 			data->exit_us = s->exit_latency;
 		}
 	}

@@ -357,7 +357,6 @@ void
 osl_pktfree_static(osl_t *osh, void *p, bool send)
 {
 	int i;
-	
 	for (i = 0; i < MAX_STATIC_PKT_NUM; i++)
 	{
 		if (p == bcm_static_skb->skb_4k[i])

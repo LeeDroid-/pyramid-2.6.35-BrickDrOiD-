@@ -2713,7 +2713,6 @@ static int msm_pp_release(struct msm_sync *sync, void __user *arg)
 		}
 		CDBG("%s: delivering pp_snap\n", __func__);
 		msm_enqueue(&sync->pict_q, &sync->pp_snap->list_pict);
-		msm_enqueue(&sync->pict_q, &sync->pp_thumb->list_pict);
 		sync->pp_snap = NULL;
 		sync->pp_thumb = NULL;
 		spin_unlock_irqrestore(&pp_snap_spinlock, flags);
@@ -3460,18 +3459,10 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 		}
 		if (sync->pp_mask & PP_SNAP) {
 			spin_lock_irqsave(&pp_thumb_spinlock, flags);
-                       sync->thumb_count--;
-                       if (!sync->pp_thumb && (0 >= sync->thumb_count)) {
+			if (!sync->pp_thumb) {
 				CDBG("%s: pp sending thumbnail to config\n",
 					__func__);
 				sync->pp_thumb = qcmd;
-                               spin_unlock_irqrestore(&pp_thumb_spinlock,
-                                       flags);
-                               if (atomic_read(&qcmd->on_heap))
-                                       atomic_add(1, &qcmd->on_heap);
-                       } else {
-                               spin_unlock_irqrestore(&pp_thumb_spinlock,
-                                       flags);
 			}
 			spin_unlock_irqrestore(&pp_thumb_spinlock, flags);
 			break;
@@ -3522,8 +3513,7 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 		}
 		if (sync->pp_mask & PP_SNAP) {
 			spin_lock_irqsave(&pp_snap_spinlock, flags);
-                       sync->snap_count--;
-                       if (!sync->pp_snap && (0 >= sync->snap_count)) {
+			if (!sync->pp_snap) {
 				CDBG("%s: pp sending main image to config\n",
 					__func__);
 				sync->pp_snap = qcmd;
@@ -3531,10 +3521,8 @@ static void msm_vfe_sync(struct msm_vfe_resp *vdata,
 					flags);
 				if (atomic_read(&qcmd->on_heap))
 					atomic_add(1, &qcmd->on_heap);
-                        } else {
-                                spin_unlock_irqrestore(&pp_snap_spinlock,
-                                       flags);
 			}
+			spin_unlock_irqrestore(&pp_snap_spinlock, flags);
 			break;
 		} else {
 #ifdef CONFIG_CAMERA_ZSL
@@ -3707,12 +3695,6 @@ vfe_for_config:
 	CDBG("%s: msm_enqueue event_q\n", __func__);
 	if (sync->frame_q.len <= 100 && sync->event_q.len <= 100) {
 		msm_enqueue(&sync->event_q, &qcmd->list_config);
-        } else if (sync->event_q.len > 100) {
-                pr_err("%s, Error Event Queue limit exceeded f_q = %d, e_q = %d\n",
-                        __func__, sync->frame_q.len, sync->event_q.len);
-                qcmd->error_code = 0xffffffff;
-                qcmd->command = NULL;
-                msm_enqueue(&sync->frame_q, &qcmd->list_frame);
 	} else {
 		pr_err("%s, Error Queue limit exceeded f_q = %d, e_q = %d\n",
 			__func__, sync->frame_q.len, sync->event_q.len);

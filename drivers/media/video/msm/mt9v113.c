@@ -1152,8 +1152,6 @@ static int mt9v113_set_contrast(enum contrast_mode contrast_value)
 	return 0;
 }
 
-/* 20110103 add new effect feature */
-static int pre_effect;
 static int mt9v113_set_effect(int effect)
 {
 	int rc = 0, k = 0;
@@ -1163,10 +1161,6 @@ static int mt9v113_set_effect(int effect)
 		return 0;
 
 	pr_info("[CAM]%s: effect = %d\n", __func__, effect);
-
-	/* 20110103 add new effect feature */
-	if (pre_effect == effect)
-		return 0;
 
 	switch (effect) {
 	case CAMERA_EFFECT_OFF:
@@ -1303,9 +1297,6 @@ static int mt9v113_set_effect(int effect)
 		   __func__, effect);
 		return -EINVAL;
 	}
-
-	/* 20110103 add new effect feature */
-	pre_effect = effect;
 
 	return 0;
 }

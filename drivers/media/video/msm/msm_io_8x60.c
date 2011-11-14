@@ -541,13 +541,6 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 	return rc;
 }
 
-void msm_camio_vfe_clk_rate_set(int rate)
-{
-       struct clk *clk = camio_vfe_clk;
-       if (rate > clk_get_rate(clk))
-               clk_set_rate(clk, rate);
-}
-
 void msm_camio_clk_rate_set(int rate)
 {
 	struct clk *clk = camio_cam_clk;
@@ -608,8 +601,9 @@ static irqreturn_t msm_io_csi_irq(int irq_num, void *data)
 			pr_info("[CAM]msm_io_csi_irq: CRC error\n");
 		if (irq & MIPI_IMASK_FRAME_SYNC_ERROR)
 			pr_info("[CAM]msm_io_csi_irq: FS not paired with FE\n");
-		if (irq & MIPI_IMASK_ID_ERROR)
+/*		if (irq & MIPI_IMASK_ID_ERROR)
 			pr_info("[CAM]msm_io_csi_irq: Long packet ID not defined\n");
+*/
 		if (irq & MIPI_IMASK_EOT_ERROR)
 			pr_info("[CAM]msm_io_csi_irq: The received data is less than the value indicated by WC\n");
 		if (irq & MIPI_IMASK_DL0_FIFO_OVERFLOW)
@@ -741,7 +735,7 @@ int msm_camio_enable(struct platform_device *pdev)
 		goto csi_busy;
 	}
 	rc = request_irq(camio_ext.csiirq, msm_io_csi_irq,
-		IRQF_TRIGGER_RISING, "csi", 0);
+		IRQF_TRIGGER_HIGH, "csi", 0);
 	if (rc < 0)
 		goto csi_irq_fail;
 
@@ -812,13 +806,6 @@ void msm_camio_disable(struct platform_device *pdev) {
                 CDBG("%s MIPI_PHY_CL_CONTROL val=0x%x\n", __func__, val);
                 msm_io_w(val, csibase + MIPI_PHY_CL_CONTROL);
                 msleep(10);
-
-	        val = msm_io_r(csibase + MIPI_PHY_D1_CONTROL);
-	        val &= ~((0x1 << MIPI_PHY_D1_CONTROL_MIPI_CLK_PHY_SHUTDOWNB_SHFT) |
-	        (0x1 << MIPI_PHY_D1_CONTROL_MIPI_DATA_PHY_SHUTDOWNB_SHFT));
-	        CDBG("%s MIPI_PHY_D1_CONTROL val=0x%x\n", __func__, val);
-	        msm_io_w(val, csibase + MIPI_PHY_D1_CONTROL);
-	        usleep_range(5000, 6000);
 
                 free_irq(camio_ext.csiirq, 0);
                 iounmap(csibase);

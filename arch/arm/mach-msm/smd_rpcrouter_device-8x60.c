@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd_rpcrouter_device.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2010, Code Aurora Forum. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -215,28 +215,6 @@ write_out_free:
 	return rc;
 }
 
-/* RPC VFS Poll Implementation
- *
- * POLLRDHUP - restart in progress
- * POLLOUT - writes accepted (without blocking)
- * POLLIN - data ready to read
- *
- * The restart state consists of several different phases including a client
- * notification and a server restart.  If the server has been restarted, then
- * reads and writes can be performed and the POLLOUT bit will be set.  If a
- * restart is in progress, but the server hasn't been restarted, then only the
- * POLLRDHUP is active and reads and writes will block.  See the table
- * below for a summary.  POLLRDHUP is cleared once a call to msm_rpc_write_pkt
- * or msm_rpc_read_pkt returns ENETRESET.
- *
- * POLLOUT	POLLRDHUP
- *    1         0       Normal operation
- *    0         1       Restart in progress and server hasn't restarted yet
- *    1         1       Server has been restarted, but client has
- *                      not been notified of a restart by a return code
- *                      of ENETRESET from msm_rpc_write_pkt or
- *                      msm_rpc_read_pkt.
- */
 static unsigned int rpcrouter_poll(struct file *filp,
 				   struct poll_table_struct *wait)
 {
@@ -246,15 +224,22 @@ static unsigned int rpcrouter_poll(struct file *filp,
 
 	ept = (struct msm_rpc_endpoint *) file_info->ept;
 
-	poll_wait(filp, &ept->wait_q, wait);
-	poll_wait(filp, &ept->restart_wait, wait);
+	/* If there's data already in the read queue, return POLLIN.
+	 * Else, wait for the requested amount of time, and check again.
+	 */
 
 	if (!list_empty(&ept->read_q))
 		mask |= POLLIN;
-	if (!(ept->restart_state & RESTART_PEND_SVR))
-		mask |= POLLOUT;
 	if (ept->restart_state != 0)
-		mask |= POLLRDHUP;
+		mask |= POLLERR;
+
+	if (!mask) {
+		poll_wait(filp, &ept->wait_q, wait);
+		if (!list_empty(&ept->read_q))
+			mask |= POLLIN;
+		if (ept->restart_state != 0)
+			mask |= POLLERR;
+	}
 
 	return mask;
 }
@@ -401,6 +386,10 @@ int msm_rpcrouter_create_server_cdev(struct rr_server *server)
  */
 int msm_rpcrouter_create_server_pdev(struct rr_server *server)
 {
+	pr_info("%s: rs%.8x\n", __func__, server->prog);
+	/* Removed by HTC to avoid race condition, assigned pdev name in do_create_pdevs */
+	/* sprintf(server->pdev_name, "rs%.8x", server->prog); */
+
 	server->p_device.base.id = (server->vers & RPC_VERSION_MODE_MASK) ?
 				   server->vers :
 				   (server->vers & RPC_VERSION_MAJOR_MASK);

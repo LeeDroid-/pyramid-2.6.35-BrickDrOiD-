@@ -43,14 +43,14 @@
 
 #include <asm/byteorder.h>
 
+#include <mach/board.h>
 #include <mach/msm_smd.h>
 #include <mach/smem_log.h>
-#include <mach/subsystem_notif.h>
-
 #include "smd_rpcrouter-8x60.h"
 #include "modem_notifier.h"
 #include "smd_rpc_sym.h"
-#include "smd_private.h"
+
+static unsigned kernel_flag;
 
 enum {
 	SMEM_LOG = 1U << 0,
@@ -71,55 +71,55 @@ static int smd_rpcrouter_debug_mask;
 module_param_named(debug_mask, smd_rpcrouter_debug_mask,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 
-#define DIAG(x...) printk(KERN_ERR "[RR] ERROR " x)
+#define DIAG(x...) printk(KERN_ERR "[SMD][RR] ERROR " x)
 
 #if defined(CONFIG_MSM_ONCRPCROUTER_DEBUG)
 #define D(x...) do { \
 if (smd_rpcrouter_debug_mask & RTR_DBG) \
-	printk(KERN_ERR x); \
+	printk(KERN_DEBUG "[SMD] "x); \
 } while (0)
 
 #define RR(x...) do { \
 if (smd_rpcrouter_debug_mask & R2R_MSG) \
-	printk(KERN_ERR "[RR] "x); \
+	printk(KERN_DEBUG "[SMD][RR] "x); \
 } while (0)
 
 #define RAW(x...) do { \
 if (smd_rpcrouter_debug_mask & R2R_RAW) \
-	printk(KERN_ERR "[RAW] "x); \
+	printk(KERN_DEBUG "[SMD][RAW] "x); \
 } while (0)
 
 #define RAW_HDR(x...) do { \
 if (smd_rpcrouter_debug_mask & R2R_RAW_HDR) \
-	printk(KERN_ERR "[HDR] "x); \
+	printk(KERN_DEBUG "[SMD][HDR] "x); \
 } while (0)
 
 #define RAW_PMR(x...) do { \
 if (smd_rpcrouter_debug_mask & RAW_PMR) \
-	printk(KERN_ERR "[PMR] "x); \
+	printk(KERN_DEBUG "[SMD][PMR] "x); \
 } while (0)
 
 #define RAW_PMR_NOMASK(x...) do { \
-	printk(KERN_ERR "[PMR] "x); \
+	printk(KERN_DEBUG "[SMD][PMR] "x); \
 } while (0)
 
 #define RAW_PMW(x...) do { \
 if (smd_rpcrouter_debug_mask & RAW_PMW) \
-	printk(KERN_ERR "[PMW] "x); \
+	printk(KERN_DEBUG "[SMD][PMW] "x); \
 } while (0)
 
 #define RAW_PMW_NOMASK(x...) do { \
-	printk(KERN_ERR "[PMW] "x); \
+	printk(KERN_DEBUG "[SMD][PMW] "x); \
 } while (0)
 
 #define IO(x...) do { \
 if (smd_rpcrouter_debug_mask & RPC_MSG) \
-	printk(KERN_ERR "[RPC] "x); \
+	printk(KERN_DEBUG "[SMD][RPC] "x); \
 } while (0)
 
 #define NTFY(x...) do { \
 if (smd_rpcrouter_debug_mask & NTFY_MSG) \
-	printk(KERN_ERR "[NOTIFY] "x); \
+	printk(KERN_DEBUG "[SMD][NOTIFY] "x); \
 } while (0)
 #else
 #define D(x...) do { } while (0)
@@ -141,7 +141,6 @@ static LIST_HEAD(remote_endpoints);
 static LIST_HEAD(server_list);
 
 static wait_queue_head_t newserver_wait;
-static wait_queue_head_t subsystem_restart_wait;
 
 static DEFINE_SPINLOCK(local_endpoints_lock);
 static DEFINE_SPINLOCK(remote_endpoints_lock);
@@ -166,6 +165,17 @@ static DECLARE_WORK(work_create_rpcrouter_pdev, do_create_rpcrouter_pdev);
 #define RR_STATE_HEADER  1
 #define RR_STATE_BODY    2
 #define RR_STATE_ERROR   3
+
+/* After restart notification, local ep keep
+ * state for server restart and for ep notify.
+ * Server restart cleared by R-R new svr msg.
+ * NTFY cleared by calling msm_rpc_clear_netreset
+*/
+
+#define RESTART_NORMAL 0
+#define RESTART_PEND_SVR 1
+#define RESTART_PEND_NTFY 2
+#define RESTART_PEND_NTFY_SVR 3
 
 /* State for remote ep following restart */
 #define RESTART_QUOTA_ABORT  1
@@ -203,7 +213,6 @@ struct rpcrouter_xprt_info {
 	uint32_t need_len;
 	struct work_struct read_data;
 	struct workqueue_struct *workqueue;
-	int abort_data_read;
 	unsigned char r2r_buf[RPCROUTER_MSGSIZE_MAX];
 };
 
@@ -211,27 +220,19 @@ static LIST_HEAD(xprt_info_list);
 static DEFINE_MUTEX(xprt_info_list_lock);
 
 DECLARE_COMPLETION(rpc_remote_router_up);
-static atomic_t pending_close_count = ATOMIC_INIT(0);
 
-/*
- * Search for transport (xprt) that matches the provided PID.
- *
- * Note: The calling function must ensure that the mutex
- *       xprt_info_list_lock is locked when this function
- *       is called.
- *
- * @remote_pid	Remote PID for the transport
- *
- * @returns Pointer to transport or NULL if not found
- */
 static struct rpcrouter_xprt_info *rpcrouter_get_xprt_info(uint32_t remote_pid)
 {
 	struct rpcrouter_xprt_info *xprt_info;
 
+	mutex_lock(&xprt_info_list_lock);
 	list_for_each_entry(xprt_info, &xprt_info_list, list) {
-		if (xprt_info->remote_pid == remote_pid)
+		if (xprt_info->remote_pid == remote_pid) {
+			mutex_unlock(&xprt_info_list_lock);
 			return xprt_info;
+		}
 	}
+	mutex_unlock(&xprt_info_list_lock);
 	return NULL;
 }
 
@@ -277,7 +278,7 @@ static int rpcrouter_send_control_msg(struct rpcrouter_xprt_info *xprt_info,
 	return 0;
 }
 
-static void modem_reset_cleanup(struct rpcrouter_xprt_info *xprt_info)
+static void modem_reset_start_cleanup(void)
 {
 	struct msm_rpc_endpoint *ept;
 	struct rr_remote_endpoint *r_ept;
@@ -289,17 +290,8 @@ static void modem_reset_cleanup(struct rpcrouter_xprt_info *xprt_info)
 	spin_lock_irqsave(&local_endpoints_lock, flags);
 	/* remove all partial packets received */
 	list_for_each_entry(ept, &local_endpoints, list) {
-		RR("%s EPT DST PID %x, remote_pid:%d\n", __func__,
-			ept->dst_pid, xprt_info->remote_pid);
-
-		if (xprt_info->remote_pid != ept->dst_pid)
-			continue;
-
-		D("calling teardown cb %p\n", ept->cb_restart_teardown);
-		if (ept->cb_restart_teardown)
-			ept->cb_restart_teardown(ept->client_data);
-		ept->do_setup_notif = 1;
-
+		RR("modem_reset_start_clenup PID %x, remotepid:%d  \n",
+		   ept->dst_pid, RPCROUTER_PID_REMOTE);
 		/* remove replies */
 		spin_lock(&ept->reply_q_lock);
 		list_for_each_entry_safe(reply, reply_tmp,
@@ -312,50 +304,45 @@ static void modem_reset_cleanup(struct rpcrouter_xprt_info *xprt_info)
 			list_del(&reply->list);
 			kfree(reply);
 		}
-		ept->reply_cnt = 0;
 		spin_unlock(&ept->reply_q_lock);
-
-		/* Set restart state for local ep */
-		RR("EPT:0x%p, State %d  RESTART_PEND_NTFY_SVR "
-			"PROG:0x%08x VERS:0x%08x\n",
-			ept, ept->restart_state,
-			be32_to_cpu(ept->dst_prog),
-			be32_to_cpu(ept->dst_vers));
-		spin_lock(&ept->restart_lock);
-		ept->restart_state = RESTART_PEND_NTFY_SVR;
-
-		/* remove incomplete packets */
-		spin_lock(&ept->incomplete_lock);
-		list_for_each_entry_safe(pkt, tmp_pkt,
-					 &ept->incomplete, list) {
-			list_del(&pkt->list);
-			frag = pkt->first;
-			while (frag != NULL) {
-				next = frag->next;
-				kfree(frag);
-				frag = next;
-			}
+		if (ept->dst_pid == RPCROUTER_PID_REMOTE) {
+			spin_lock(&ept->incomplete_lock);
+			list_for_each_entry_safe(pkt, tmp_pkt,
+						 &ept->incomplete, list) {
+				list_del(&pkt->list);
+				frag = pkt->first;
+				while (frag != NULL) {
+					next = frag->next;
+					kfree(frag);
+					frag = next;
+				}
 			kfree(pkt);
-		}
-		spin_unlock(&ept->incomplete_lock);
-
-		/* remove all completed packets waiting to be read */
-		spin_lock(&ept->read_q_lock);
-		list_for_each_entry_safe(pkt, tmp_pkt, &ept->read_q,
-					 list) {
-			list_del(&pkt->list);
-			frag = pkt->first;
-			while (frag != NULL) {
-				next = frag->next;
-				kfree(frag);
-				frag = next;
 			}
-			kfree(pkt);
+			spin_unlock(&ept->incomplete_lock);
+			/* remove all completed packets waiting to be read*/
+			spin_lock(&ept->read_q_lock);
+			list_for_each_entry_safe(pkt, tmp_pkt, &ept->read_q,
+						 list) {
+				list_del(&pkt->list);
+				frag = pkt->first;
+				while (frag != NULL) {
+					next = frag->next;
+					kfree(frag);
+					frag = next;
+				}
+				kfree(pkt);
+			}
+			spin_unlock(&ept->read_q_lock);
+			/* Set restart state for local ep */
+			RR("EPT:0x%p, State %d  RESTART_PEND_NTFY_SVR "
+			   "PROG:0x%08x VERS:0x%08x \n",
+			   ept, ept->restart_state, be32_to_cpu(ept->dst_prog),
+			   be32_to_cpu(ept->dst_vers));
+			spin_lock(&ept->restart_lock);
+			ept->restart_state = RESTART_PEND_NTFY_SVR;
+			spin_unlock(&ept->restart_lock);
+			wake_up(&ept->wait_q);
 		}
-		spin_unlock(&ept->read_q_lock);
-
-		spin_unlock(&ept->restart_lock);
-		wake_up(&ept->wait_q);
 	}
 
 	spin_unlock_irqrestore(&local_endpoints_lock, flags);
@@ -371,73 +358,9 @@ static void modem_reset_cleanup(struct rpcrouter_xprt_info *xprt_info)
 		wake_up(&r_ept->quota_wait);
 	}
 	spin_unlock_irqrestore(&remote_endpoints_lock, flags);
+
 }
 
-static void modem_reset_startup(struct rpcrouter_xprt_info *xprt_info)
-{
-	struct msm_rpc_endpoint *ept;
-	unsigned long flags;
-
-	spin_lock_irqsave(&local_endpoints_lock, flags);
-
-	/* notify all endpoints that we are coming back up */
-	list_for_each_entry(ept, &local_endpoints, list) {
-		RR("%s EPT DST PID %x, remote_pid:%d\n", __func__,
-			ept->dst_pid, xprt_info->remote_pid);
-
-		if (xprt_info->remote_pid != ept->dst_pid)
-			continue;
-
-		D("calling setup cb %d:%p\n", ept->do_setup_notif,
-					ept->cb_restart_setup);
-		if (ept->do_setup_notif && ept->cb_restart_setup)
-			ept->cb_restart_setup(ept->client_data);
-		ept->do_setup_notif = 0;
-	}
-
-	spin_unlock_irqrestore(&local_endpoints_lock, flags);
-}
-
-/*
- * Blocks and waits for endpoint if a reset is in progress.
- *
- * @returns
- *    ENETRESET     Reset is in progress and a notification needed
- *    ERESTARTSYS   Signal occurred
- *    0             Reset is not in progress
- */
-static int wait_for_restart_and_notify(struct msm_rpc_endpoint *ept)
-{
-	unsigned long flags;
-	int ret = 0;
-	DEFINE_WAIT(__wait);
-
-	for (;;) {
-		prepare_to_wait(&ept->restart_wait, &__wait,
-				TASK_INTERRUPTIBLE);
-
-		spin_lock_irqsave(&ept->restart_lock, flags);
-		if (ept->restart_state == RESTART_NORMAL) {
-			spin_unlock_irqrestore(&ept->restart_lock, flags);
-			break;
-		} else if (ept->restart_state & RESTART_PEND_NTFY) {
-			ept->restart_state &= ~RESTART_PEND_NTFY;
-			spin_unlock_irqrestore(&ept->restart_lock, flags);
-			ret = -ENETRESET;
-			break;
-		}
-		if (signal_pending(current) &&
-		   ((!(ept->flags & MSM_RPC_UNINTERRUPTIBLE)))) {
-			spin_unlock_irqrestore(&ept->restart_lock, flags);
-			ret = -ERESTARTSYS;
-			break;
-		}
-		spin_unlock_irqrestore(&ept->restart_lock, flags);
-		schedule();
-	}
-	finish_wait(&ept->restart_wait, &__wait);
-	return ret;
-}
 
 static struct rr_server *rpcrouter_create_server(uint32_t pid,
 							uint32_t cid,
@@ -629,9 +552,6 @@ int msm_rpcrouter_destroy_local_endpoint(struct msm_rpc_endpoint *ept)
 	/* Endpoint with dst_pid = 0xffffffff corresponds to that of
 	** router port. So don't send a REMOVE CLIENT message while
 	** destroying it.*/
-	spin_lock_irqsave(&local_endpoints_lock, flags);
-	list_del(&ept->list);
-	spin_unlock_irqrestore(&local_endpoints_lock, flags);
 	if (ept->dst_pid != 0xffffffff) {
 		msg.cmd = RPCROUTER_CTRL_CMD_REMOVE_CLIENT;
 		msg.cli.pid = ept->pid;
@@ -663,6 +583,9 @@ int msm_rpcrouter_destroy_local_endpoint(struct msm_rpc_endpoint *ept)
 
 	wake_lock_destroy(&ept->read_q_wake_lock);
 	wake_lock_destroy(&ept->reply_q_wake_lock);
+	spin_lock_irqsave(&local_endpoints_lock, flags);
+	list_del(&ept->list);
+	spin_unlock_irqrestore(&local_endpoints_lock, flags);
 	kfree(ept);
 	return 0;
 }
@@ -692,11 +615,16 @@ static int rpcrouter_create_remote_endpoint(uint32_t pid, uint32_t cid)
 static struct msm_rpc_endpoint *rpcrouter_lookup_local_endpoint(uint32_t cid)
 {
 	struct msm_rpc_endpoint *ept;
+	unsigned long flags;
 
+	spin_lock_irqsave(&local_endpoints_lock, flags);
 	list_for_each_entry(ept, &local_endpoints, list) {
-		if (ept->cid == cid)
+		if (ept->cid == cid) {
+			spin_unlock_irqrestore(&local_endpoints_lock, flags);
 			return ept;
+		}
 	}
+	spin_unlock_irqrestore(&local_endpoints_lock, flags);
 	return NULL;
 }
 
@@ -732,7 +660,7 @@ static void handle_server_restart(struct rr_server *server,
 		r_ept->quota_restart_state =
 		RESTART_NORMAL;
 		spin_unlock_irqrestore(&r_ept->quota_lock, flags);
-		D(KERN_INFO "rpcrouter: Remote EPT Reset %0x\n",
+		printk(KERN_INFO "rpcrouter: Remote EP %0x Reset\n",
 			   (unsigned int)r_ept);
 		wake_up(&r_ept->quota_wait);
 	}
@@ -764,7 +692,7 @@ static int process_control_msg(struct rpcrouter_xprt_info *xprt_info,
 	static int first = 1;
 
 	if (len != sizeof(*msg)) {
-		RR(KERN_ERR "rpcrouter: r2r msg size %d != %d\n",
+		printk(KERN_ERR "rpcrouter: r2r msg size %d != %d\n",
 		       len, sizeof(*msg));
 		return -EINVAL;
 	}
@@ -772,6 +700,14 @@ static int process_control_msg(struct rpcrouter_xprt_info *xprt_info,
 	switch (msg->cmd) {
 	case RPCROUTER_CTRL_CMD_HELLO:
 		RR("o HELLO PID %d\n", xprt_info->remote_pid);
+
+		/* HTC add this to avoid the duplicate RPCROUTER_CTRL_CMD_HELLO issue */
+		if (xprt_info->initialized) {
+			pr_err("\n\n\nWarning! Receive RPCROUTER_CTRL_CMD_HELLO twice! (Remote_PID=0x%x)\n\n\n", xprt_info->remote_pid);
+			break;
+		}
+		/*--------------------------------------------------------------*/
+
 		memset(&ctl, 0, sizeof(ctl));
 		ctl.cmd = RPCROUTER_CTRL_CMD_HELLO;
 		rpcrouter_send_control_msg(xprt_info, &ctl);
@@ -932,8 +868,9 @@ static void do_create_pdevs(struct work_struct *work)
 	list_for_each_entry(server, &server_list, list) {
 		if (server->pid != RPCROUTER_PID_LOCAL) {
 			if (server->pdev_name[0] == 0) {
-				sprintf(server->pdev_name, "rs%.8x",
-					server->prog);
+				/* Modified by HTC to avoid race condition, assigned pdev name here before spin_unlock instead of
+				    in msm_rpcrouter_create_server_pdev,*/
+				sprintf(server->pdev_name, "rs%.8x", server->prog);
 				spin_unlock_irqrestore(&server_list_lock,
 						       flags);
 				msm_rpcrouter_create_server_pdev(server);
@@ -947,13 +884,13 @@ static void do_create_pdevs(struct work_struct *work)
 
 static void *rr_malloc(unsigned sz)
 {
-	void *ptr = kmalloc(sz, GFP_KERNEL);
+	void *ptr = kzalloc(sz, GFP_KERNEL);
 	if (ptr)
 		return ptr;
 
-	printk(KERN_ERR "rpcrouter: kmalloc of %d failed, retrying...\n", sz);
+	printk(KERN_ERR "rpcrouter: kzalloc of %d failed, retrying...\n", sz);
 	do {
-		ptr = kmalloc(sz, GFP_KERNEL);
+		ptr = kzalloc(sz, GFP_KERNEL);
 	} while (!ptr);
 
 	return ptr;
@@ -965,12 +902,12 @@ static int rr_read(struct rpcrouter_xprt_info *xprt_info,
 	int rc;
 	unsigned long flags;
 
-	while (!xprt_info->abort_data_read) {
+	for(;;) {
 		spin_lock_irqsave(&xprt_info->lock, flags);
 		if (xprt_info->xprt->read_avail() >= len) {
 			rc = xprt_info->xprt->read(data, len);
 			spin_unlock_irqrestore(&xprt_info->lock, flags);
-			if (rc == len && !xprt_info->abort_data_read)
+			if (rc == len)
 				return 0;
 			else
 				return -EIO;
@@ -980,10 +917,9 @@ static int rr_read(struct rpcrouter_xprt_info *xprt_info,
 		spin_unlock_irqrestore(&xprt_info->lock, flags);
 
 		wait_event(xprt_info->read_wait,
-			xprt_info->xprt->read_avail() >= len
-			|| xprt_info->abort_data_read);
+			   xprt_info->xprt->read_avail() >= len);
 	}
-	return -EIO;
+	return 0;
 }
 
 #if defined(CONFIG_MSM_ONCRPCROUTER_DEBUG)
@@ -1051,12 +987,8 @@ static void do_read_data(struct work_struct *work)
 	}
 
 	if (hdr.dst_cid == RPCROUTER_ROUTER_ADDRESS) {
-		if (xprt_info->remote_pid == -1) {
+		if (xprt_info->remote_pid == -1)
 			xprt_info->remote_pid = hdr.src_pid;
-
-			/* do restart notification */
-			modem_reset_startup(xprt_info);
-		}
 
 		if (rr_read(xprt_info, xprt_info->r2r_buf, hdr.size))
 			goto fail_io;
@@ -1117,10 +1049,8 @@ static void do_read_data(struct work_struct *work)
 	}
 #endif
 
-	spin_lock_irqsave(&local_endpoints_lock, flags);
 	ept = rpcrouter_lookup_local_endpoint(hdr.dst_cid);
 	if (!ept) {
-		spin_unlock_irqrestore(&local_endpoints_lock, flags);
 		DIAG("no local ept for cid %08x\n", hdr.dst_cid);
 		kfree(frag);
 		goto done;
@@ -1130,7 +1060,7 @@ static void do_read_data(struct work_struct *work)
 	 * and if so, append this fragment to that packet.
 	 */
 	mid = PACMARK_MID(pm);
-	spin_lock(&ept->incomplete_lock);
+	spin_lock_irqsave(&ept->incomplete_lock, flags);
 	list_for_each_entry(pkt, &ept->incomplete, list) {
 		if (pkt->mid == mid) {
 			pkt->last->next = frag;
@@ -1138,16 +1068,15 @@ static void do_read_data(struct work_struct *work)
 			pkt->length += frag->length;
 			if (PACMARK_LAST(pm)) {
 				list_del(&pkt->list);
-				spin_unlock(&ept->incomplete_lock);
+				spin_unlock_irqrestore(&ept->incomplete_lock,
+						       flags);
 				goto packet_complete;
 			}
-			spin_unlock(&ept->incomplete_lock);
-			spin_unlock_irqrestore(&local_endpoints_lock, flags);
+			spin_unlock_irqrestore(&ept->incomplete_lock, flags);
 			goto done;
 		}
 	}
-	spin_unlock(&ept->incomplete_lock);
-	spin_unlock_irqrestore(&local_endpoints_lock, flags);
+	spin_unlock_irqrestore(&ept->incomplete_lock, flags);
 	/* This mid is new -- create a packet for it, and put it on
 	 * the incomplete list if this fragment is not a last fragment,
 	 * otherwise put it on the read queue.
@@ -1158,32 +1087,18 @@ static void do_read_data(struct work_struct *work)
 	memcpy(&pkt->hdr, &hdr, sizeof(hdr));
 	pkt->mid = mid;
 	pkt->length = frag->length;
-
-	spin_lock_irqsave(&local_endpoints_lock, flags);
-	ept = rpcrouter_lookup_local_endpoint(hdr.dst_cid);
-	if (!ept) {
-		spin_unlock_irqrestore(&local_endpoints_lock, flags);
-		DIAG("no local ept for cid %08x\n", hdr.dst_cid);
-		kfree(frag);
-		kfree(pkt);
-		goto done;
-	}
 	if (!PACMARK_LAST(pm)) {
-		spin_lock(&ept->incomplete_lock);
 		list_add_tail(&pkt->list, &ept->incomplete);
-		spin_unlock(&ept->incomplete_lock);
-		spin_unlock_irqrestore(&local_endpoints_lock, flags);
 		goto done;
 	}
 
 packet_complete:
-	spin_lock(&ept->read_q_lock);
+	spin_lock_irqsave(&ept->read_q_lock, flags);
 	D("%s: take read lock on ept %p\n", __func__, ept);
 	wake_lock(&ept->read_q_wake_lock);
 	list_add_tail(&pkt->list, &ept->read_q);
 	wake_up(&ept->wait_q);
-	spin_unlock(&ept->read_q_lock);
-	spin_unlock_irqrestore(&local_endpoints_lock, flags);
+	spin_unlock_irqrestore(&ept->read_q_lock, flags);
 done:
 
 	if (hdr.confirm_rx) {
@@ -1207,19 +1122,12 @@ done:
 
 	}
 
-	/* don't requeue if we should be shutting down */
-	if (!xprt_info->abort_data_read) {
-		queue_work(xprt_info->workqueue, &xprt_info->read_data);
-		return;
-	}
-
-	D("rpc_router terminating for '%s'\n",
-		xprt_info->xprt->name);
+	queue_work(xprt_info->workqueue, &xprt_info->read_data);
+	return;
 
 fail_io:
 fail_data:
-	D(KERN_ERR "rpc_router has died for '%s'\n",
-			xprt_info->xprt->name);
+	printk(KERN_ERR "rpc_router has died\n");
 }
 
 void msm_rpc_setup_req(struct rpc_request_hdr *hdr, uint32_t prog,
@@ -1275,8 +1183,7 @@ static int msm_rpc_write_pkt(
 	uint32_t event_id;
 #endif
 	uint32_t pacmark;
-	unsigned long flags = 0;
-	int rc;
+	unsigned long flags;
 	struct rpcrouter_xprt_info *xprt_info;
 	int needed;
 
@@ -1290,9 +1197,28 @@ static int msm_rpc_write_pkt(
 	hdr->confirm_rx = 0;
 	hdr->size = count + sizeof(uint32_t);
 
-	rc = wait_for_restart_and_notify(ept);
-	if (rc)
-		return rc;
+	for (;;) {
+		prepare_to_wait(&ept->restart_wait, &__wait,
+				TASK_INTERRUPTIBLE);
+		spin_lock_irqsave(&ept->restart_lock, flags);
+		if (ept->restart_state == RESTART_NORMAL) {
+			spin_unlock_irqrestore(&ept->restart_lock, flags);
+			break;
+		}
+		if (signal_pending(current) &&
+		   ((!(ept->flags & MSM_RPC_UNINTERRUPTIBLE)))) {
+			spin_unlock_irqrestore(&ept->restart_lock, flags);
+			break;
+		}
+		spin_unlock_irqrestore(&ept->restart_lock, flags);
+		schedule();
+	}
+	finish_wait(&ept->restart_wait, &__wait);
+
+	if (signal_pending(current) &&
+		(!(ept->flags & MSM_RPC_UNINTERRUPTIBLE))) {
+		return -ERESTARTSYS;
+	}
 
 	if (r_ept) {
 		for (;;) {
@@ -1348,14 +1274,9 @@ static int msm_rpc_write_pkt(
 	if (r_ept)
 		spin_unlock_irqrestore(&r_ept->quota_lock, flags);
 
-	mutex_lock(&xprt_info_list_lock);
 	xprt_info = rpcrouter_get_xprt_info(hdr->dst_pid);
-	if (!xprt_info) {
-		mutex_unlock(&xprt_info_list_lock);
-		return -ENETRESET;
-	}
+
 	spin_lock_irqsave(&xprt_info->lock, flags);
-	mutex_unlock(&xprt_info_list_lock);
 	spin_lock(&ept->restart_lock);
 	if (ept->restart_state != RESTART_NORMAL) {
 		ept->restart_state &= ~RESTART_PEND_NTFY;
@@ -1370,17 +1291,7 @@ static int msm_rpc_write_pkt(
 		spin_unlock(&ept->restart_lock);
 		spin_unlock_irqrestore(&xprt_info->lock, flags);
 		msleep(250);
-
-		/* refresh xprt pointer to ensure that it hasn't
-		 * been deleted since our last retrieval */
-		mutex_lock(&xprt_info_list_lock);
-		xprt_info = rpcrouter_get_xprt_info(hdr->dst_pid);
-		if (!xprt_info) {
-			mutex_unlock(&xprt_info_list_lock);
-			return -ENETRESET;
-		}
 		spin_lock_irqsave(&xprt_info->lock, flags);
-		mutex_unlock(&xprt_info_list_lock);
 		spin_lock(&ept->restart_lock);
 	}
 	if (ept->restart_state != RESTART_NORMAL) {
@@ -1591,7 +1502,7 @@ int msm_rpc_write(struct msm_rpc_endpoint *ept, void *buffer, int count)
 		}
 		hdr.dst_pid = reply->pid;
 		hdr.dst_cid = reply->cid;
-		IO("REPLY to xid=%d @ %d:%08x (%d bytes)\n",
+		IO("REPLY to xid:0x%03x @ %d:%08x (%d bytes)\n",
 		   be32_to_cpu(rq->xid), hdr.dst_pid, hdr.dst_cid, count);
 	}
 
@@ -1806,24 +1717,26 @@ int __msm_rpc_read(struct msm_rpc_endpoint *ept,
 	unsigned long flags;
 	int rc;
 
-	rc = wait_for_restart_and_notify(ept);
-	if (rc)
-		return rc;
-
 	IO("READ on ept %p\n", ept);
+	spin_lock_irqsave(&ept->restart_lock, flags);
+	if (ept->restart_state !=  RESTART_NORMAL) {
+		ept->restart_state &= ~RESTART_PEND_NTFY;
+		spin_unlock_irqrestore(&ept->restart_lock, flags);
+		return -ENETRESET;
+	}
+	spin_unlock_irqrestore(&ept->restart_lock, flags);
+
 	if (ept->flags & MSM_RPC_UNINTERRUPTIBLE) {
 		if (timeout < 0) {
 			wait_event(ept->wait_q, (ept_packet_available(ept) ||
-						   ept->forced_wakeup ||
-						   ept->restart_state));
+						   ept->forced_wakeup));
 			if (!msm_rpc_clear_netreset(ept))
 				return -ENETRESET;
 		} else {
 			rc = wait_event_timeout(
 				ept->wait_q,
 				(ept_packet_available(ept) ||
-				 ept->forced_wakeup ||
-				 ept->restart_state),
+				 ept->forced_wakeup),
 				timeout);
 			if (!msm_rpc_clear_netreset(ept))
 				return -ENETRESET;
@@ -1834,8 +1747,7 @@ int __msm_rpc_read(struct msm_rpc_endpoint *ept,
 		if (timeout < 0) {
 			rc = wait_event_interruptible(
 				ept->wait_q, (ept_packet_available(ept) ||
-					ept->forced_wakeup ||
-					ept->restart_state));
+					      ept->forced_wakeup));
 			if (!msm_rpc_clear_netreset(ept))
 				return -ENETRESET;
 			if (rc < 0)
@@ -1844,8 +1756,7 @@ int __msm_rpc_read(struct msm_rpc_endpoint *ept,
 			rc = wait_event_interruptible_timeout(
 				ept->wait_q,
 				(ept_packet_available(ept) ||
-				 ept->forced_wakeup ||
-				 ept->restart_state),
+				 ept->forced_wakeup),
 				timeout);
 			if (!msm_rpc_clear_netreset(ept))
 				return -ENETRESET;
@@ -2124,33 +2035,46 @@ int msm_rpc_get_curr_pkt_size(struct msm_rpc_endpoint *ept)
 	return rc;
 }
 
+static int msm_rpcrouter_modem_notify(struct notifier_block *this,
+				      unsigned long code,
+				      void *_cmd)
+{
+	switch (code) {
+	case MODEM_NOTIFIER_START_RESET:
+		NTFY("%s: MODEM_NOTIFIER_START_RESET", __func__);
+		modem_reset_start_cleanup();
+		break;
+	case MODEM_NOTIFIER_END_RESET:
+		NTFY("%s: MODEM_NOTIFIER_END_RESET", __func__);
+		break;
+	default:
+		NTFY("%s: default", __func__);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
 int msm_rpcrouter_close(void)
 {
-	struct rpcrouter_xprt_info *xprt_info;
+	struct rpcrouter_xprt_info *xprt_info, *tmp_xprt_info;
 	union rr_control_msg ctl;
 
 	ctl.cmd = RPCROUTER_CTRL_CMD_BYE;
 	mutex_lock(&xprt_info_list_lock);
-	while (!list_empty(&xprt_info_list)) {
-		xprt_info = list_first_entry(&xprt_info_list,
-					struct rpcrouter_xprt_info, list);
-		xprt_info->abort_data_read = 1;
-		wake_up(&xprt_info->read_wait);
+	list_for_each_entry_safe(xprt_info, tmp_xprt_info,
+				 &xprt_info_list, list) {
 		rpcrouter_send_control_msg(xprt_info, &ctl);
 		xprt_info->xprt->close();
 		list_del(&xprt_info->list);
-		mutex_unlock(&xprt_info_list_lock);
-
-		flush_workqueue(xprt_info->workqueue);
-		destroy_workqueue(xprt_info->workqueue);
-		wake_lock_destroy(&xprt_info->wakelock);
 		kfree(xprt_info);
-
-		mutex_lock(&xprt_info_list_lock);
 	}
 	mutex_unlock(&xprt_info_list_lock);
 	return 0;
 }
+
+static struct notifier_block msm_rpcrouter_nb = {
+	.notifier_call = msm_rpcrouter_modem_notify,
+};
 
 #if defined(CONFIG_DEBUG_FS)
 static int dump_servers(char *buf, int max)
@@ -2308,10 +2232,9 @@ static void debugfs_init(void) {}
 static int msm_rpcrouter_add_xprt(struct rpcrouter_xprt *xprt)
 {
 	struct rpcrouter_xprt_info *xprt_info;
+	static uint32_t workthread_created;
 
-	D("Registering xprt %s to RPC Router\n", xprt->name);
-
-	xprt_info = kmalloc(sizeof(struct rpcrouter_xprt_info), GFP_KERNEL);
+	xprt_info = kzalloc(sizeof(struct rpcrouter_xprt_info), GFP_KERNEL);
 	if (!xprt_info)
 		return -ENOMEM;
 
@@ -2323,9 +2246,20 @@ static int msm_rpcrouter_add_xprt(struct rpcrouter_xprt *xprt)
 	wake_lock_init(&xprt_info->wakelock,
 		       WAKE_LOCK_SUSPEND, xprt->name);
 	xprt_info->need_len = 0;
-	xprt_info->abort_data_read = 0;
 	INIT_WORK(&xprt_info->read_data, do_read_data);
 	INIT_LIST_HEAD(&xprt_info->list);
+
+	/* TODO: remove rpcrouter_workqueue and handle
+	   creating router pdev differently */
+	if (!workthread_created) {
+		rpcrouter_workqueue =
+			create_singlethread_workqueue("rpcrouter");
+		if (!rpcrouter_workqueue) {
+			kfree(xprt_info);
+			return -ENOMEM;
+		}
+		workthread_created = 1;
+	}
 
 	xprt_info->workqueue = create_singlethread_workqueue(xprt->name);
 	if (!xprt_info->workqueue) {
@@ -2336,8 +2270,6 @@ static int msm_rpcrouter_add_xprt(struct rpcrouter_xprt *xprt)
 	if (!strcmp(xprt->name, "rpcrouter_loopback_xprt")) {
 		xprt_info->remote_pid = RPCROUTER_PID_LOCAL;
 		xprt_info->initialized = 1;
-	} else {
-		smsm_change_state(SMSM_APPS_STATE, 0, SMSM_RPCINIT);
 	}
 
 	mutex_lock(&xprt_info_list_lock);
@@ -2351,152 +2283,63 @@ static int msm_rpcrouter_add_xprt(struct rpcrouter_xprt *xprt)
 	return 0;
 }
 
-static void msm_rpcrouter_remove_xprt(struct rpcrouter_xprt *xprt)
-{
-	struct rpcrouter_xprt_info *xprt_info;
-	unsigned long flags;
-
-	if (xprt && xprt->priv) {
-		xprt_info = xprt->priv;
-
-		/* abort rr_read thread */
-		xprt_info->abort_data_read = 1;
-		wake_up(&xprt_info->read_wait);
-
-		/* remove xprt from available xprts */
-		mutex_lock(&xprt_info_list_lock);
-		spin_lock_irqsave(&xprt_info->lock, flags);
-		list_del(&xprt_info->list);
-
-		/* unlock the spinlock last to avoid a race
-		 * condition with rpcrouter_get_xprt_info
-		 * in msm_rpc_write_pkt in which the
-		 * xprt is returned from rpcrouter_get_xprt_info
-		 * and then deleted here. */
-		mutex_unlock(&xprt_info_list_lock);
-		spin_unlock_irqrestore(&xprt_info->lock, flags);
-
-		/* cleanup workqueues and wakelocks */
-		flush_workqueue(xprt_info->workqueue);
-		destroy_workqueue(xprt_info->workqueue);
-		wake_lock_destroy(&xprt_info->wakelock);
-
-
-		/* free memory */
-		xprt->priv = 0;
-		kfree(xprt_info);
-	}
-}
-
-struct rpcrouter_xprt_work {
-	struct rpcrouter_xprt *xprt;
-	struct work_struct work;
-};
-
-static void xprt_open_worker(struct work_struct *work)
-{
-	struct rpcrouter_xprt_work *xprt_work =
-		container_of(work, struct rpcrouter_xprt_work, work);
-
-	msm_rpcrouter_add_xprt(xprt_work->xprt);
-
-	kfree(xprt_work);
-}
-
-static void xprt_close_worker(struct work_struct *work)
-{
-	struct rpcrouter_xprt_work *xprt_work =
-		container_of(work, struct rpcrouter_xprt_work, work);
-
-	modem_reset_cleanup(xprt_work->xprt->priv);
-	msm_rpcrouter_remove_xprt(xprt_work->xprt);
-
-	if (atomic_dec_return(&pending_close_count) == 0)
-		wake_up(&subsystem_restart_wait);
-
-	kfree(xprt_work);
-}
-
 void msm_rpcrouter_xprt_notify(struct rpcrouter_xprt *xprt, unsigned event)
 {
-	struct rpcrouter_xprt_info *xprt_info;
-	struct rpcrouter_xprt_work *xprt_work;
+	struct rpcrouter_xprt_info *xprt_info = xprt->priv;
 
-	/* Workqueue is created in init function which works for all existing
-	 * clients.  If this fails in the future, then it will need to be
-	 * created earlier. */
-	BUG_ON(!rpcrouter_workqueue);
+	/* TODO: need to close the transport upon close event */
+	if (event == RPCROUTER_XPRT_EVENT_OPEN)
+		msm_rpcrouter_add_xprt(xprt);
 
-	switch (event) {
-	case RPCROUTER_XPRT_EVENT_OPEN:
-		D("open event for '%s'\n", xprt->name);
-		xprt_work = kmalloc(sizeof(struct rpcrouter_xprt_work),
-				GFP_ATOMIC);
-		xprt_work->xprt = xprt;
-		INIT_WORK(&xprt_work->work, xprt_open_worker);
-		queue_work(rpcrouter_workqueue, &xprt_work->work);
-		break;
+	if (!xprt_info)
+		return;
 
-	case RPCROUTER_XPRT_EVENT_CLOSE:
-		D("close event for '%s'\n", xprt->name);
-
-		atomic_inc(&pending_close_count);
-
-		xprt_work = kmalloc(sizeof(struct rpcrouter_xprt_work),
-				GFP_ATOMIC);
-		xprt_work->xprt = xprt;
-		INIT_WORK(&xprt_work->work, xprt_close_worker);
-		queue_work(rpcrouter_workqueue, &xprt_work->work);
-		break;
-	}
-
-	xprt_info = xprt->priv;
-	if (xprt_info) {
-		/* Check read_avail even for OPEN event to handle missed
-		   DATA events while processing the OPEN event*/
-		if (xprt->read_avail() >= xprt_info->need_len)
-			wake_lock(&xprt_info->wakelock);
-		wake_up(&xprt_info->read_wait);
-	}
+	/* Check read_avail even for OPEN event to handle missed
+	   DATA events while processing the OPEN event*/
+	if (xprt->read_avail() >= xprt_info->need_len)
+		wake_lock(&xprt_info->wakelock);
+	wake_up(&xprt_info->read_wait);
 }
 
-static int modem_restart_notifier_cb(struct notifier_block *this,
-				  unsigned long code,
-				  void *data);
-static struct notifier_block nb = {
-	.notifier_call = modem_restart_notifier_cb,
-};
-
-static int modem_restart_notifier_cb(struct notifier_block *this,
-				  unsigned long code,
-				  void *data)
+#if 1 /* HTC */
+#define MODULE_NAME "smd_rpcrouter"
+static int kernel_flag_boot_config(char *str)
 {
-	switch (code) {
-	case SUBSYS_BEFORE_SHUTDOWN:
-		D("%s: SUBSYS_BEFORE_SHUTDOWN\n", __func__);
-		break;
+	unsigned check_bit_start = 0x100;
+	int i = 0 ;
 
-	case SUBSYS_BEFORE_POWERUP:
-		D("%s: waiting for RPC restart to complete\n", __func__);
-		wait_event(subsystem_restart_wait,
-			atomic_read(&pending_close_count) == 0);
-		D("%s: finished restart wait\n", __func__);
-		break;
+	if (!str)
+		return -EINVAL;
 
-	default:
-		break;
+	kernel_flag = simple_strtoul(str, NULL, 16);
+
+	pr_info(MODULE_NAME ": %s(): get kernel_flag=0x%x\n", __func__, kernel_flag);
+
+	/* kernel_flag <-> smd_rpcrouter_debug_mask mapping */
+	for (i = 0; i < 4; i++) {
+		switch (kernel_flag & (check_bit_start << i)) {
+		case BIT8:
+			smd_rpcrouter_debug_mask |= (RTR_DBG | NTFY_MSG);
+			break;
+		case BIT9:
+			smd_rpcrouter_debug_mask |= R2R_MSG;
+			break;
+		case BIT10:
+			smd_rpcrouter_debug_mask |= (R2R_RAW_HDR | RAW_PMR | RAW_PMW);
+			break;
+		case BIT11:
+			smd_rpcrouter_debug_mask |= RPC_MSG;
+			break;
+		default:
+			break;
+		}
 	}
 
-	return NOTIFY_DONE;
-}
-
-static void *restart_notifier_handle;
-static __init int modem_restart_late_init(void)
-{
-	restart_notifier_handle = subsys_notif_register_notifier("modem", &nb);
+	pr_info(MODULE_NAME ": %s(): get smd_rpcrouter_debug_mask=0x%x\n", __func__, smd_rpcrouter_debug_mask);
 	return 0;
 }
-late_initcall(modem_restart_late_init);
+early_param("kernelflag", kernel_flag_boot_config);
+#endif  /* HTC */
 
 static int __init rpcrouter_init(void)
 {
@@ -2506,21 +2349,20 @@ static int __init rpcrouter_init(void)
 	smd_rpcrouter_debug_mask |= SMEM_LOG;
 	debugfs_init();
 
-
 	/* Initialize what we need to start processing */
-	rpcrouter_workqueue =
-		create_singlethread_workqueue("rpcrouter");
-	if (!rpcrouter_workqueue) {
-		msm_rpcrouter_exit_devices();
-		return -ENOMEM;
-	}
+	INIT_LIST_HEAD(&local_endpoints);
+	INIT_LIST_HEAD(&remote_endpoints);
+	INIT_LIST_HEAD(&xprt_info_list);
 
 	init_waitqueue_head(&newserver_wait);
-	init_waitqueue_head(&subsystem_restart_wait);
 
 	ret = msm_rpcrouter_init_devices();
 	if (ret < 0)
 		return ret;
+
+	ret = modem_register_notifier(&msm_rpcrouter_nb);
+	if (ret < 0)
+		msm_rpcrouter_exit_devices();
 
 	return ret;
 }

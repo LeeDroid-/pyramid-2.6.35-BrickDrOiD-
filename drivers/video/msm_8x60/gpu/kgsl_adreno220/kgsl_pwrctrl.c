@@ -30,7 +30,6 @@
 #define TZ_UPDATE_ID	0x01404000
 #define TZ_RESET_ID	0x01403000
 
-#undef CONFIG_MSM_SECURE_IO
 #ifdef CONFIG_MSM_SECURE_IO
 /* Trap into the TrustZone, and call funcs there. */
 static int __secure_tz_entry(u32 cmd, u32 val)
@@ -45,6 +44,7 @@ static int __secure_tz_entry(u32 cmd, u32 val)
 		__asmeq("%1", "r0")
 		__asmeq("%2", "r1")
 		__asmeq("%3", "r2")
+			".arch_extension sec\n"
 		"smc    #0      @ switch to secure world\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2)
@@ -80,16 +80,11 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 			clk_set_rate(pwr->grp_src_clk,
 				pwr->pwrlevels[pwr->active_pwrlevel].
 				gpu_freq);
-		if (pwr->power_flags & KGSL_PWRFLAGS_AXI_ON) {
+		if (pwr->power_flags & KGSL_PWRFLAGS_AXI_ON)
 			if (pwr->pcl)
 				msm_bus_scale_client_update_request(pwr->pcl,
 					pwr->pwrlevels[pwr->active_pwrlevel].
 					bus_freq);
-			else if (pwr->ebi1_clk)
-				clk_set_rate(pwr->ebi1_clk,
-					pwr->pwrlevels[pwr->active_pwrlevel].
-					bus_freq);
-		}
 		KGSL_PWR_WARN("pwr level changed to %d\n",
 						pwr->active_pwrlevel);
 	}
@@ -250,40 +245,40 @@ static int kgsl_pwrctrl_idle_timer_show(struct device *dev,
 }
 
 static int kgsl_pwrctrl_scaling_governor_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
+                                        struct device_attribute *attr,
+                                        const char *buf, size_t count)
 {
-	char temp[20];
-	struct kgsl_device *device = kgsl_device_from_dev(dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	unsigned int reset = pwr->idle_pass;
-
-	snprintf(temp, sizeof(temp), "%.*s",
-			(int)min(count, sizeof(temp) - 1), buf);
-	if (strncmp(temp, "ondemand", 8) == 0)
-		reset = 1;
-	else if (strncmp(temp, "performance", 11) == 0)
-		reset = 0;
-
-	mutex_lock(&device->mutex);
-	pwr->idle_pass = reset;
-	if (pwr->idle_pass == 0)
-		kgsl_pwrctrl_pwrlevel_change(device, pwr->thermal_pwrlevel);
-	mutex_unlock(&device->mutex);
-
-	return count;
+        char temp[20];
+        struct kgsl_device *device = kgsl_device_from_dev(dev);
+        struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+        unsigned int reset = pwr->idle_pass;
+ 
+        snprintf(temp, sizeof(temp), "%.*s",
+                        (int)min(count, sizeof(temp) - 1), buf);
+        if (strncmp(temp, "ondemand", 8) == 0)
+                reset = 1;
+        else if (strncmp(temp, "performance", 11) == 0)
+                reset = 0;
+ 
+        mutex_lock(&device->mutex);
+        pwr->idle_pass = reset;
+        if (pwr->idle_pass == 0)
+                kgsl_pwrctrl_pwrlevel_change(device, pwr->thermal_pwrlevel);
+        mutex_unlock(&device->mutex);
+ 
+        return count;
 }
 
 static int kgsl_pwrctrl_scaling_governor_show(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
+                                        struct device_attribute *attr,
+                                        char *buf)
 {
-	struct kgsl_device *device = kgsl_device_from_dev(dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	if (pwr->idle_pass)
-		return snprintf(buf, 10, "ondemand\n");
-	else
-		return snprintf(buf, 13, "performance\n");
+        struct kgsl_device *device = kgsl_device_from_dev(dev);
+        struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+        if (pwr->idle_pass)
+                return snprintf(buf, 10, "ondemand\n");
+        else
+                return snprintf(buf, 13, "performance\n");
 }
 
 static struct device_attribute gpuclk_attr = {
@@ -305,9 +300,9 @@ static struct device_attribute idle_timer_attr = {
 };
 
 static struct device_attribute scaling_governor_attr = {
-	.attr = { .name = "scaling_governor", .mode = 0644, },
-	.show = kgsl_pwrctrl_scaling_governor_show,
-	.store = kgsl_pwrctrl_scaling_governor_store,
+        .attr = { .name = "scaling_governor", .mode = 0644, },
+        .show = kgsl_pwrctrl_scaling_governor_show,
+        .store = kgsl_pwrctrl_scaling_governor_store,
 };
 
 int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device)
@@ -321,7 +316,7 @@ int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device)
 	if (ret == 0)
 		ret = device_create_file(device->dev, &idle_timer_attr);
 	if (ret == 0)
-		ret = device_create_file(device->dev, &scaling_governor_attr);
+                ret = device_create_file(device->dev, &scaling_governor_attr);
 	return ret;
 }
 
@@ -637,11 +632,13 @@ int kgsl_pwrctrl_sleep(struct kgsl_device *device)
 			goto nap;
 	} else if (device->requested_state == KGSL_STATE_SLEEP) {
 		if (device->state == KGSL_STATE_NAP ||
-                        device->ftbl.device_isidle(device))
+			device->ftbl.device_isidle(device))
 			goto sleep;
 	}
+
 	device->requested_state = KGSL_STATE_NONE;
 	return KGSL_FAILURE;
+
 sleep:
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_IRQ_OFF);
 	kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_AXI_OFF);

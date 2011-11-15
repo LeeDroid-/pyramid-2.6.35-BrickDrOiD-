@@ -9813,6 +9813,10 @@ wl_iw_sta_restart(struct net_device *dev)
 
 	dhd_os_start_lock(iw->pub);
 
+	if (dev_wlc_ioctl_off == 1) {
+		dhd_os_start_unlock(iw->pub);
+		return;
+	}
 #if defined(WL_IW_USE_ISCAN)
         g_iscan->iscan_state = ISCAN_STATE_IDLE;
 #endif
@@ -9890,6 +9894,10 @@ static void wl_iw_ap_restart(void)
 static void wl_iw_restart(struct net_device *dev)
 {
 	wl_iw_sta_restart(dev);
+
+	if (dev_wlc_ioctl_off == 1) {
+		return;
+	}
 	if ( ap_cfg_running ) 
 		wl_iw_ap_restart();
 

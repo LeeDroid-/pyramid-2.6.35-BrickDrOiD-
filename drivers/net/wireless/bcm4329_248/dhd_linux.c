@@ -67,6 +67,7 @@
  * keep_alive needs htodXX(), le/be  macro
  */
 
+dhd_pub_t *priv_dhdp = NULL;
 
 #if defined(CUSTOMER_HW2) && defined(CONFIG_WIFI_CONTROL_FUNC)
 #include <linux/wifi_tiwlan.h>
@@ -365,6 +366,12 @@ module_param(dhd_pkt_filter_init, uint, 0);
 /* Pkt filter mode control */
 uint dhd_master_mode = TRUE;
 module_param(dhd_master_mode, uint, 1);
+
+/* Pkt filter for Rogers nat keep alive packet, we need change filter mode to filter out*/
+/* packet filter for Rogers nat keep alive +++ */
+int filter_reverse = 0;
+module_param(filter_reverse, int, 0);
+/* packet filter for Rogers nat keep alive --- */
 
 /* Watchdog thread priority, -1 to use kernel timer */
 int dhd_watchdog_prio = 97;
@@ -2317,6 +2324,7 @@ dhd_bus_start(dhd_pub_t *dhdp)
 	if ((ret = dhd_prot_init(&dhd->pub)) < 0)
 		return ret;
 
+	priv_dhdp = dhdp;
 	return 0;
 }
 
@@ -2581,8 +2589,12 @@ dhd_module_cleanup(void)
 {
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
+	if (priv_dhdp)
+		dhd_os_start_lock(priv_dhdp);
 	disable_dev_wlc_ioctl();
 	module_remove = 1;
+	if (priv_dhdp)
+		dhd_os_start_unlock(priv_dhdp);
 	module_insert = 0;
 	bcm_mdelay(1000);
 	dhd_bus_unregister();

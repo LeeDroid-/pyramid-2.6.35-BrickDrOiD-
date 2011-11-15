@@ -587,6 +587,7 @@ static void do_emergency_remount(struct work_struct *work)
 	struct super_block *sb, *n;
 
 	spin_lock(&sb_lock);
+	printk(KERN_DEBUG "(pid %d) request emergency remount\n", current->pid);
 	list_for_each_entry_safe(sb, n, &super_blocks, s_list) {
 		if (list_empty(&sb->s_instances))
 			continue;

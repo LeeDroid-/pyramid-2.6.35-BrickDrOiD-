@@ -879,7 +879,10 @@ static int cy8c_ts_probe(struct i2c_client *client,
 
 	set_bit(EV_SYN, ts->input_dev->evbit);
 	set_bit(EV_ABS, ts->input_dev->evbit);
-	set_bit(EV_KEY, ts->input_dev->evbit);
+/*	ICS touchscreen modification
+ *
+ *	set_bit(EV_KEY, ts->input_dev->evbit);
+ */
 
 	set_bit(KEY_BACK, ts->input_dev->keybit);
 	set_bit(KEY_HOME, ts->input_dev->keybit);

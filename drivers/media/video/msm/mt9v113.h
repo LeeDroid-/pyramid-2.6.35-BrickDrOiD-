@@ -24,7 +24,11 @@
 #define MT9V113_H
 
 #include <linux/types.h>
+#ifdef CONFIG_MSM_CAMERA_8X60
+#include <mach/camera-8x60.h>
+#else
 #include <mach/camera.h>
+#endif
 
 extern struct mt9v113_reg mt9v113_regs;
 

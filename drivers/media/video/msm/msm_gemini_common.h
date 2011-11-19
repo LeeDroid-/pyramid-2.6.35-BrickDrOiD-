@@ -29,14 +29,13 @@
 #ifndef MSM_GEMINI_COMMON_H
 #define MSM_GEMINI_COMMON_H
 
-#define MSM_GEMINI_DEBUG
 #ifdef MSM_GEMINI_DEBUG
-#define GMN_DBG(fmt, args...) pr_debug(fmt, ##args)
+#define GMN_DBG(fmt, args...) printk(KERN_INFO "[CAM] gemini: " fmt, ##args)
 #else
 #define GMN_DBG(fmt, args...) do { } while (0)
 #endif
 
-#define GMN_PR_ERR   pr_err
+#define GMN_PR_ERR(fmt, args...)   pr_err("[CAM]"fmt, ##args)
 
 enum GEMINI_MODE {
 	GEMINI_MODE_DISABLE,

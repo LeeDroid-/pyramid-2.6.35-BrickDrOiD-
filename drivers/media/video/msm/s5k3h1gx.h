@@ -58,7 +58,11 @@
 #define S5K3H1GX_H
 
 #include <linux/types.h>
+#ifdef CONFIG_MSM_CAMERA_8X60
+#include <mach/camera-8x60.h>
+#else
 #include <mach/camera.h>
+#endif
 
 struct s5k3h1gx_i2c_reg_conf {
 	unsigned short waddr;

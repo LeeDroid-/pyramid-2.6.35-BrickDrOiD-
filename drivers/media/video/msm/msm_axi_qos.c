@@ -17,7 +17,11 @@
  */
 
 #include <linux/pm_qos_params.h>
+#ifdef CONFIG_MSM_CAMERA_8X60
+#include <mach/camera-8x60.h>
+#else
 #include <mach/camera.h>
+#endif
 #define MSM_AXI_QOS_NAME "msm_camera"
 
 static struct pm_qos_request_list *pm_qos_req;

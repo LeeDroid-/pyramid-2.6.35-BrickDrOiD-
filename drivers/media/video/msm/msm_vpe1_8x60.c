@@ -807,13 +807,6 @@ static int vpe_proc_general(struct msm_vpe_cmd *cmd)
 		}
 		cmdp = kmalloc(VPE_OPERATION_MODE_CFG_LEN,
 					GFP_ATOMIC);
-		/* HTC_START Glenn 20110721 For klockwork issue */
-		if (!cmdp) {
-			rc = -ENOMEM;
-			CDBG("[CAM] %s: cmdp allocation failed. \n", __func__);
-			goto vpe_proc_general_done;
-		}
-		/* HTC_END */
 		if (copy_from_user(cmdp,
 			(void __user *)(cmd->value),
 			VPE_OPERATION_MODE_CFG_LEN)) {

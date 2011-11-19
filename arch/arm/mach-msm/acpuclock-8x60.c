@@ -906,21 +906,11 @@ static struct notifier_block __cpuinitdata acpuclock_cpu_notifier = {
 
 static unsigned int __init select_freq_plan(void)
 {
-	uint32_t raw_speed_bin, speed_bin, max_khz;
+	uint32_t max_khz;
 	struct clkctl_acpu_speed *f;
 
-	raw_speed_bin = readl(QFPROM_SPEED_BIN_ADDR);
-	speed_bin = raw_speed_bin & 0xF;
-	if (speed_bin == 0xF)
-		speed_bin = (raw_speed_bin >> 4) & 0xF;
-	if (speed_bin == 0x1) {
-		acpu_freq_tbl = acpu_freq_tbl_oc;
-		max_khz = 1890000;
-	}
-	else {
-		acpu_freq_tbl = acpu_freq_tbl_oc;
-		max_khz = 1890000;
-	}
+	acpu_freq_tbl = acpu_freq_tbl_oc;
+	max_khz = 1914000;
 
 	/* Truncate the table based to max_khz. */
 	for (f = acpu_freq_tbl; f->acpuclk_khz != 0; f++) {

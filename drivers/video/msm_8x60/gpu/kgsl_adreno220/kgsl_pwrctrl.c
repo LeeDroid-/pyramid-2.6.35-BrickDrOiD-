@@ -32,7 +32,7 @@
 #define UPDATE_BUSY_VAL	1000000
 #define UPDATE_BUSY		50
 
-#undef CONFIG_MSM_SECURE_IO
+//#undef CONFIG_MSM_SECURE_IO
 #ifdef CONFIG_MSM_SECURE_IO
 /* Trap into the TrustZone, and call funcs there. */
 static int __secure_tz_entry(u32 cmd, u32 val)
@@ -47,6 +47,7 @@ static int __secure_tz_entry(u32 cmd, u32 val)
 		__asmeq("%1", "r0")
 		__asmeq("%2", "r1")
 		__asmeq("%3", "r2")
+		".arch_extension sec\n"
 		"smc    #0      @ switch to secure world\n"
 		: "=r" (r0)
 		: "r" (r0), "r" (r1), "r" (r2)

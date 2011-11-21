@@ -35,7 +35,6 @@
 #include <linux/ashmem.h>
 
 #include "kgsl.h"
-#include "kgsl_mmu.h"
 #include "kgsl_yamato.h"
 #include "kgsl_g12.h"
 #include "kgsl_cmdstream.h"
@@ -1921,6 +1920,69 @@ error_class_create:
 	return err;
 }
 
+static void
+kgsl_ptpool_cleanup(void)
+{
+	int size = kgsl_driver.ptpool.entries * kgsl_driver.ptsize;
+
+	if (kgsl_driver.ptpool.hostptr)
+		dma_free_coherent(NULL, size, kgsl_driver.ptpool.hostptr,
+				  kgsl_driver.ptpool.physaddr);
+
+
+	kfree(kgsl_driver.ptpool.bitmap);
+
+	memset(&kgsl_driver.ptpool, 0, sizeof(kgsl_driver.ptpool));
+}
+
+/* Allocate memory and structures for the pagetable pool */
+
+static int __devinit
+kgsl_ptpool_init(void)
+{
+	int size = kgsl_driver.ptpool.entries * kgsl_driver.ptsize;
+
+	if (size > SZ_4M) {
+		size = SZ_4M;
+		kgsl_driver.ptpool.entries = SZ_4M / kgsl_driver.ptsize;
+		KGSL_DRV_ERR("Page table pool too big.  Limiting to "
+			"%d processes\n", kgsl_driver.ptpool.entries);
+	}
+
+	/* Allocate a large chunk of memory for the page tables */
+
+	kgsl_driver.ptpool.hostptr =
+		dma_alloc_coherent(NULL, size, &kgsl_driver.ptpool.physaddr,
+				   GFP_KERNEL);
+
+	if (kgsl_driver.ptpool.hostptr == NULL) {
+		KGSL_DRV_ERR("pagetable init failed\n");
+		return -ENOMEM;
+	}
+
+	/* Allocate room for the bitmap */
+
+	kgsl_driver.ptpool.bitmap =
+		kzalloc((kgsl_driver.ptpool.entries / BITS_PER_BYTE) + 1,
+			GFP_KERNEL);
+
+	if (kgsl_driver.ptpool.bitmap == NULL) {
+		KGSL_DRV_ERR("pagetable init failed\n");
+		dma_free_coherent(NULL, size, kgsl_driver.ptpool.hostptr,
+				  kgsl_driver.ptpool.physaddr);
+		return -ENOMEM;
+	}
+
+	/* Clear the memory at init time - this saves us having to do
+	   it as page tables are allocated */
+
+	memset(kgsl_driver.ptpool.hostptr, 0, size);
+
+	spin_lock_init(&kgsl_driver.ptpool.lock);
+
+	return 0;
+}
+
 static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 {
 	int i, result = 0;
@@ -1973,8 +2035,7 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 
 	kgsl_driver.ptpool.entries = pdata->pt_max_count;
 
-	result = kgsl_ptpool_init(&kgsl_driver.ptpool, kgsl_driver.ptsize,
-		CONFIG_MSM_KGSL_PAGE_TABLE_COUNT);
+	result = kgsl_ptpool_init();
 
 	if (result != 0)
 		goto done;
@@ -2046,7 +2107,7 @@ static int kgsl_platform_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 
-	kgsl_ptpool_destroy(&kgsl_driver.ptpool);
+	kgsl_ptpool_cleanup();
 	kgsl_driver_cleanup();
 	kgsl_drm_exit();
 	kgsl_device_unregister();

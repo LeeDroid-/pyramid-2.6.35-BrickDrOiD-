@@ -56,7 +56,7 @@
 #ifdef Nutter_Mode
 #define L_VAL_SCPLL_CAL_MAX	0x24 /* = 1914 MHz with 27MHz source */
 #else
-#define L_VAL_SCPLL_CAL_MAX	0x1E /* = 1620 MHz with 27MHz source */
+#define L_VAL_SCPLL_CAL_MAX	0x20 /* = 1728 MHz with 27MHz source */
 #endif
 
 
@@ -101,7 +101,7 @@
 #ifdef Nutter_Mode
 #define FREQ_TABLE_SIZE			29
 #else
-#define FREQ_TABLE_SIZE			23
+#define FREQ_TABLE_SIZE			25
 #endif
 
 static const void * const clk_ctl_addr[] = {SPSS0_CLK_CTL_ADDR,
@@ -245,9 +245,9 @@ static struct clkctl_acpu_speed acpu_freq_tbl_oc[] = {
   { {1, 1}, 1536000,  ACPU_SCPLL, 0, 0, 1, 0x1C, L2(19), 1200000, 0x03006000},
   { {1, 1}, 1566000,  ACPU_SCPLL, 0, 0, 1, 0x1D, L2(20), 1225000, 0x03006000},
   { {1, 1}, 1620000,  ACPU_SCPLL, 0, 0, 1, 0x1E, L2(20), 1250000, 0x03006000},
-#ifdef Nutter_Mode
   { {1, 1}, 1674000,  ACPU_SCPLL, 0, 0, 1, 0x1F, L2(20), 1275000, 0x03006000},
   { {1, 1}, 1728000,  ACPU_SCPLL, 0, 0, 1, 0x20, L2(21), 1300000, 0x03006000},
+#ifdef Nutter_Mode
   { {1, 1}, 1782000,  ACPU_SCPLL, 0, 0, 1, 0x21, L2(21), 1325000, 0x03006000},
   { {1, 1}, 1836000,  ACPU_SCPLL, 0, 0, 1, 0x22, L2(21), 1337500, 0x03006000},
   { {1, 1}, 1890000,  ACPU_SCPLL, 0, 0, 1, 0x23, L2(21), 1350000, 0x03006000},

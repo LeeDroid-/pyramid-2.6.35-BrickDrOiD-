@@ -2210,7 +2210,7 @@ static ssize_t								\
 __FUNC(struct elevator_queue *e, const char *page, size_t count)	\
 {									\
 	struct bfq_data *bfqd = e->elevator_data;			\
-	unsigned long __data;						\
+	unsigned long __data = 0;						\
 	int ret = bfq_var_store(&__data, (page), count);		\
 	if (__data < (MIN))						\
 		__data = (MIN);						\
@@ -2266,7 +2266,7 @@ static ssize_t bfq_max_budget_store(struct elevator_queue *e,
 				    const char *page, size_t count)
 {
 	struct bfq_data *bfqd = e->elevator_data;
-	unsigned long __data;
+	unsigned long __data = 0;
 	int ret = bfq_var_store(&__data, (page), count);
 
 	if (__data == 0)
@@ -2286,7 +2286,7 @@ static ssize_t bfq_timeout_sync_store(struct elevator_queue *e,
 				      const char *page, size_t count)
 {
 	struct bfq_data *bfqd = e->elevator_data;
-	unsigned long __data;
+	unsigned long __data = 0;
 	int ret = bfq_var_store(&__data, (page), count);
 
 	if (__data < 1)
@@ -2305,7 +2305,7 @@ static ssize_t bfq_low_latency_store(struct elevator_queue *e,
 				     const char *page, size_t count)
 {
 	struct bfq_data *bfqd = e->elevator_data;
-	unsigned long __data;
+	unsigned long __data = 0;
 	int ret = bfq_var_store(&__data, (page), count);
 
 	if (__data > 1)
